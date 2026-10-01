@@ -36,6 +36,14 @@ vi.mock('../CancelarAssinatura', () => ({
   ),
 }));
 
+// A exportação (leitura, CSV, download) tem teste próprio (BotaoExportarDados.test e o módulo exportacao); aqui só interessa
+// quando a tela a oferece e para qual barbearia.
+vi.mock('../BotaoExportarDados', () => ({
+  BotaoExportarDados: ({ tenantId, timezone, fullWidth }: { tenantId: string; timezone?: string; fullWidth?: boolean }) => (
+    <div data-testid="exportar-dados">{`${tenantId} ${timezone ?? 'sem fuso'} ${fullWidth ? 'largura total' : 'largura própria'}`}</div>
+  ),
+}));
+
 import { TelaDeBloqueio } from '../TelaDeBloqueio';
 
 describe('TelaDeBloqueio', () => {
@@ -177,6 +185,39 @@ describe('TelaDeBloqueio', () => {
       await userEvent.click(screen.getByRole('button', { name: 'simular assinatura cancelada' }));
 
       expect(onCancelada).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  // Spec 052, ticket 14: os dados nunca ficam presos ao Navalhado. O Gerente bloqueado, seja qual for o motivo, baixa os clientes, os
+  // agendamentos e as comandas da barbearia; o Barbeiro não vê o botão.
+  describe('Gerente: exportar os dados', () => {
+    it.each(['trial_expired', 'payment_failed', 'canceled', 'courtesy_expired', 'refunded', 'charged_back', 'blocked'] as const)(
+      'no bloqueio %s oferece "Exportar dados" da barbearia dele, no fuso dela',
+      (motivo) => {
+        render(
+          <TelaDeBloqueio motivo={motivo} perfil="gerente" tenantName="Alpha" tenantId="tenant-1" timezone="America/Manaus" onLogout={vi.fn()} />,
+        );
+
+        expect(screen.getByTestId('exportar-dados')).toHaveTextContent('tenant-1 America/Manaus largura total');
+      },
+    );
+
+    it('oferece mesmo com o pagamento ainda sendo confirmado: exportar nunca depende de pagar', () => {
+      render(<TelaDeBloqueio motivo="trial_expired" perfil="gerente" tenantName="Alpha" tenantId="tenant-1" onLogout={vi.fn()} aguardandoConfirmacao />);
+
+      expect(screen.getByTestId('exportar-dados')).toBeInTheDocument();
+    });
+
+    it('sem saber qual é a barbearia, não oferece', () => {
+      render(<TelaDeBloqueio motivo="trial_expired" perfil="gerente" tenantName="Alpha" onLogout={vi.fn()} />);
+
+      expect(screen.queryByTestId('exportar-dados')).not.toBeInTheDocument();
+    });
+
+    it('o Barbeiro nunca vê, mesmo com a barbearia identificada', () => {
+      render(<TelaDeBloqueio motivo="trial_expired" perfil="barbeiro" tenantName="Alpha" tenantId="tenant-1" onLogout={vi.fn()} />);
+
+      expect(screen.queryByTestId('exportar-dados')).not.toBeInTheDocument();
     });
   });
 

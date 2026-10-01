@@ -1,6 +1,7 @@
 import React from 'react';
 import { Button } from '../ui';
 import { BotaoAssinar } from './BotaoAssinar';
+import { BotaoExportarDados } from './BotaoExportarDados';
 import { CancelarAssinatura } from './CancelarAssinatura';
 import { TrocarCartao } from './TrocarCartao';
 import { explicacaoDoBloqueio, tituloDoBloqueio } from '../../modules/assinatura/mensagensDeAcesso';
@@ -10,6 +11,9 @@ interface TelaDeBloqueioProps {
   motivo: MotivoDeAcesso;
   perfil: PerfilNoBloqueio;
   tenantName: string;
+  /** Barbearia e fuso dela, para o Gerente exportar os dados. Sem a barbearia identificada a tela não oferece a exportação. */
+  tenantId?: string;
+  timezone?: string;
   onLogout: () => void;
   /** O Gerente acabou de voltar da página do Mercado Pago: o pagamento ainda está sendo confirmado. */
   aguardandoConfirmacao?: boolean;
@@ -40,12 +44,15 @@ const ASSINATURA_BLOQUEADA: AssinaturaCancelavel = {
  * que já existe (o "Pagar" só levaria a uma recusa: a assinatura anterior continua ativa no
  * Mercado Pago). Quando a assinatura segue viva no Mercado Pago (pagamento recusado, estorno,
  * contestação, bloqueio do Proprietário), o Gerente que não quer voltar pode cancelá-la, para não
- * ser cobrado no mês seguinte; o acesso segue bloqueado. O Barbeiro só recebe a explicação.
+ * ser cobrado no mês seguinte; o acesso segue bloqueado. Em qualquer bloqueio o Gerente também baixa os dados da
+ * barbearia ("Exportar dados": os dados nunca ficam presos ao Navalhado). O Barbeiro só recebe a explicação.
  */
 export const TelaDeBloqueio: React.FC<TelaDeBloqueioProps> = ({
   motivo,
   perfil,
   tenantName,
+  tenantId,
+  timezone,
   onLogout,
   aguardandoConfirmacao = false,
   onAtualizar,
@@ -85,6 +92,8 @@ export const TelaDeBloqueio: React.FC<TelaDeBloqueioProps> = ({
         {perfil === 'gerente' && !aguardandoConfirmacao && MOTIVOS_COM_ASSINATURA_VIVA.includes(motivo) && (
           <CancelarAssinatura assinatura={ASSINATURA_BLOQUEADA} onCancelada={onCancelada} />
         )}
+
+        {perfil === 'gerente' && tenantId && <BotaoExportarDados tenantId={tenantId} timezone={timezone} fullWidth />}
 
         <Button variant="ghost" fullWidth onClick={onLogout}>
           Sair da conta

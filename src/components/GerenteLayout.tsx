@@ -219,6 +219,8 @@ export const GerenteLayout: React.FC = () => {
         motivo={estadoDeAcesso.motivo}
         perfil="gerente"
         tenantName={tenantInfo.tenantName}
+        tenantId={tenantInfo.tenantId}
+        timezone={tenantInfo.timezone}
         onLogout={handleLogout}
         aguardandoConfirmacao={aguardandoConfirmacao}
         onAtualizar={recarregarEstadoDeAcesso}

@@ -2,6 +2,7 @@ import React, { useEffect, useRef } from 'react';
 import { formatCurrency } from '../../lib/currency';
 import { Button, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui';
 import { BotaoAssinar } from './BotaoAssinar';
+import { BotaoExportarDados } from './BotaoExportarDados';
 import { CancelarAssinatura } from './CancelarAssinatura';
 import { DescidaAgendada } from './DescidaAgendada';
 import { MudarDePlano } from './MudarDePlano';
@@ -102,6 +103,20 @@ export const SecaoAssinatura: React.FC<SecaoAssinaturaProps> = ({
     </div>
   );
 
+  // Os dados são da barbearia, e não da assinatura (ticket 14): a exportação aparece em qualquer situação, até quando a assinatura
+  // não carrega.
+  const exportacao = (
+    <div className="flex flex-col gap-2 border-t border-border pt-4">
+      <h4 className="text-sm font-extrabold m-0 text-text-primary">Seus dados</h4>
+      <p className="text-sm text-text-secondary m-0">
+        Os dados da barbearia são seus: baixe os clientes, os agendamentos e as comandas em planilhas CSV, uma para cada, quando quiser.
+      </p>
+      <div>
+        <BotaoExportarDados tenantId={tenantId} timezone={timezone} />
+      </div>
+    </div>
+  );
+
   if (status === 'error') {
     return (
       <section className={CARD_CLASSES}>
@@ -112,6 +127,7 @@ export const SecaoAssinatura: React.FC<SecaoAssinaturaProps> = ({
             Tentar de novo
           </Button>
         </div>
+        {exportacao}
       </section>
     );
   }
@@ -121,6 +137,7 @@ export const SecaoAssinatura: React.FC<SecaoAssinaturaProps> = ({
       <section className={CARD_CLASSES}>
         {cabecalho}
         <p className="text-sm text-text-primary m-0">Sua barbearia está sem assinatura.</p>
+        {exportacao}
       </section>
     );
   }
@@ -222,7 +239,6 @@ export const SecaoAssinatura: React.FC<SecaoAssinaturaProps> = ({
         />
       )}
 
-      {/* Aqui entram as ações da assinatura, cada uma no seu ticket: exportar os dados (14). */}
       {botao && (
         <div>
           <BotaoAssinar rotulo={botao} abrirLink={abrirLink} />
@@ -240,6 +256,8 @@ export const SecaoAssinatura: React.FC<SecaoAssinaturaProps> = ({
 
       {/* Cancelar fica por último entre as ações: depois dele a cobrança para. Cancelada, a tela passa a oferecer "Assinar de novo". */}
       {podeCancelar(assinatura) && <CancelarAssinatura assinatura={assinatura} timezone={timezone} onCancelada={aoCancelar} />}
+
+      {exportacao}
 
       <div className="flex flex-col gap-3 border-t border-border pt-4">
         <h4 className="text-sm font-extrabold m-0 text-text-primary">Histórico de cobranças</h4>

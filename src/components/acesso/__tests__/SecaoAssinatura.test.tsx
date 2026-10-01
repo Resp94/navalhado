@@ -76,6 +76,14 @@ vi.mock('../CancelarAssinatura', () => ({
   ),
 }));
 
+// A exportação (leitura, CSV, download) tem teste próprio (BotaoExportarDados.test e o módulo exportacao); aqui só interessa quando a
+// seção a oferece e para qual barbearia.
+vi.mock('../BotaoExportarDados', () => ({
+  BotaoExportarDados: ({ tenantId, timezone }: { tenantId: string; timezone?: string }) => (
+    <div data-testid="exportar-dados">{`${tenantId} ${timezone ?? 'sem fuso'}`}</div>
+  ),
+}));
+
 import { SecaoAssinatura } from '../SecaoAssinatura';
 
 // Spec 052, tickets 05 e 06: a tela Assinatura de Configurações mostra o plano, a situação, a
@@ -697,6 +705,48 @@ describe('SecaoAssinatura', () => {
       await userEvent.click(screen.getByRole('button', { name: 'Tentar de novo' }));
 
       expect(recarregar).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  // Spec 052, ticket 14: os dados nunca ficam presos ao Navalhado. A tela Assinatura (só do Gerente) oferece "Exportar dados" em
+  // qualquer situação, e até quando a assinatura não carrega: os dados não dependem dela.
+  describe('exportar os dados', () => {
+    it.each(['trialing', 'active', 'past_due', 'canceled', 'courtesy', 'blocked'] as const)(
+      'na situação %s oferece "Exportar dados" da barbearia, no fuso dela',
+      (situacao) => {
+        comDados({ assinatura: { situacao, cartao: null }, diasRestantes: 10 });
+        renderizar('', vi.fn(), 'America/Manaus');
+
+        expect(screen.getByTestId('exportar-dados')).toHaveTextContent('tenant-a America/Manaus');
+      },
+    );
+
+    it('sem assinatura, também oferece', () => {
+      comDados({ assinatura: null });
+      renderizar();
+
+      expect(screen.getByTestId('exportar-dados')).toBeInTheDocument();
+    });
+
+    it('se a assinatura não carrega, também oferece', () => {
+      comDados({ status: 'error', assinatura: null });
+      renderizar();
+
+      expect(screen.getByTestId('exportar-dados')).toBeInTheDocument();
+    });
+
+    it('explica o que o Gerente baixa', () => {
+      comDados();
+      renderizar();
+
+      expect(screen.getByText(/clientes, os agendamentos e as comandas/i)).toBeInTheDocument();
+    });
+
+    it('enquanto carrega, não mostra nada', () => {
+      comDados({ status: 'loading', assinatura: null });
+      renderizar();
+
+      expect(screen.queryByTestId('exportar-dados')).not.toBeInTheDocument();
     });
   });
 

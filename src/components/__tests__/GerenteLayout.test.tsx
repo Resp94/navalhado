@@ -3,11 +3,13 @@ import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { GerenteLayout } from '../GerenteLayout';
 
-const { mockAddToast, mockNavigate, mockUseLocation, mockRpc, contextosDoOutlet } = vi.hoisted(() => ({
+const { mockAddToast, mockNavigate, mockUseLocation, mockRpc, mockGerarArquivos, mockBaixarCsv, contextosDoOutlet } = vi.hoisted(() => ({
   mockAddToast: vi.fn(),
   mockNavigate: vi.fn(),
   mockUseLocation: vi.fn().mockReturnValue({ pathname: '/agenda' }),
   mockRpc: vi.fn(),
+  mockGerarArquivos: vi.fn(),
+  mockBaixarCsv: vi.fn(),
   // Cada contexto que o layout entregou ao Outlet, na ordem: dá para conferir a identidade do objeto e usar as funções dele.
   contextosDoOutlet: [] as any[],
 }));
@@ -53,6 +55,13 @@ vi.mock('../acesso/CancelarAssinatura', () => ({
     <button onClick={onCancelada}>simular assinatura cancelada</button>
   ),
 }));
+
+// A leitura e o CSV da exportação têm teste próprio (módulo exportacao); aqui só interessa de qual barbearia, em qual fuso, o
+// botão da tela de bloqueio pede os dados.
+vi.mock('../../modules/exportacao/repositorio', () => ({
+  exportacaoRepository: { gerarArquivos: (...args: unknown[]) => mockGerarArquivos(...args) },
+}));
+vi.mock('../../modules/relatorios/csv', () => ({ baixarCsv: (...args: unknown[]) => mockBaixarCsv(...args) }));
 
 const mockGetUser = vi.fn();
 const mockFrom = vi.fn();
@@ -272,6 +281,19 @@ describe('GerenteLayout Gatekeeper', () => {
       expect(screen.getByText('Barbearia Navalhado')).toBeInTheDocument();
       expect(screen.queryByTestId('outlet')).not.toBeInTheDocument();
       expect(screen.queryByRole('status')).not.toBeInTheDocument();
+    });
+
+    // Spec 052, ticket 14: o bloqueio é do front, e o Gerente bloqueado continua lendo os próprios dados para exportá-los.
+    it('bloqueado: o Gerente exporta os dados da própria barbearia, no fuso dela', async () => {
+      painelDaBarbearia('/agenda', true, '', 'America/Manaus');
+      estadoDoBanco('blocked', 'trial_expired', '2026-09-29T12:00:00Z');
+      mockGerarArquivos.mockResolvedValue([{ nome: 'clientes_2026-10-01.csv', conteudo: 'conteudo' }]);
+
+      render(<GerenteLayout />);
+      await userEvent.click(await screen.findByRole('button', { name: 'Exportar dados' }));
+
+      await waitFor(() => expect(mockBaixarCsv).toHaveBeenCalledWith('clientes_2026-10-01.csv', 'conteudo'));
+      expect(mockGerarArquivos).toHaveBeenCalledWith('tenant-123', 'America/Manaus');
     });
 
     // Spec 052, ticket 05: o Mercado Pago devolve o Gerente em /configuracoes?assinatura=retorno.
