@@ -560,6 +560,73 @@ describe('SecaoAssinatura', () => {
     });
   });
 
+  // Revisão (roteiro como pessoa real): o aviso do Mercado Pago pode chegar com a tela aberta (a autorização da assinatura nova leva
+  // de segundos a minutos). Quando a assinatura lida muda de situação, o layout relê o Estado de Acesso: a faixa do topo acompanha
+  // a seção, em vez de seguir dizendo "cancelada" enquanto a seção já diz "assinatura nova autorizada".
+  describe('mudança de situação com a tela aberta', () => {
+    const reassinada = {
+      situacao: 'canceled' as const,
+      assinaturaNovaAutorizada: true,
+      cartao: { bandeira: 'master', final: null },
+    };
+    const props = (onSituacaoMudou: () => void) => ({ tenantId: 'tenant-a', search: '', onSituacaoMudou });
+
+    it('avisa o layout quando a assinatura passa a ter a assinatura nova autorizada (mesma situação, cancelada)', () => {
+      const onSituacaoMudou = vi.fn();
+      comDados({ assinatura: { situacao: 'canceled' } });
+      const { rerender } = render(<SecaoAssinatura {...props(onSituacaoMudou)} />);
+      expect(onSituacaoMudou).not.toHaveBeenCalled();
+
+      comDados({ assinatura: reassinada });
+      rerender(<SecaoAssinatura {...props(onSituacaoMudou)} />);
+
+      expect(onSituacaoMudou).toHaveBeenCalledTimes(1);
+    });
+
+    it('avisa o layout quando a situação muda (ativa que vira cancelada, por exemplo)', () => {
+      const onSituacaoMudou = vi.fn();
+      comDados({ assinatura: { situacao: 'active' } });
+      const { rerender } = render(<SecaoAssinatura {...props(onSituacaoMudou)} />);
+
+      comDados({ assinatura: { situacao: 'canceled', cartao: null } });
+      rerender(<SecaoAssinatura {...props(onSituacaoMudou)} />);
+
+      expect(onSituacaoMudou).toHaveBeenCalledTimes(1);
+    });
+
+    it('não avisa na primeira leitura, nem quando a releitura traz a mesma situação', () => {
+      const onSituacaoMudou = vi.fn();
+      comDados({ assinatura: reassinada });
+      const { rerender } = render(<SecaoAssinatura {...props(onSituacaoMudou)} />);
+
+      comDados({ assinatura: reassinada, diasRestantes: 3 });
+      rerender(<SecaoAssinatura {...props(onSituacaoMudou)} />);
+
+      expect(onSituacaoMudou).not.toHaveBeenCalled();
+    });
+
+    it('enquanto carrega, ou sem assinatura, não avisa', () => {
+      const onSituacaoMudou = vi.fn();
+      comDados({ status: 'loading', assinatura: null });
+      const { rerender } = render(<SecaoAssinatura {...props(onSituacaoMudou)} />);
+
+      comDados({ assinatura: null });
+      rerender(<SecaoAssinatura {...props(onSituacaoMudou)} />);
+
+      expect(onSituacaoMudou).not.toHaveBeenCalled();
+    });
+
+    it('sem quem escute a mudança, a tela segue normal', () => {
+      comDados({ assinatura: { situacao: 'canceled' } });
+      const { rerender } = render(<SecaoAssinatura tenantId="tenant-a" search="" />);
+
+      comDados({ assinatura: reassinada });
+      rerender(<SecaoAssinatura tenantId="tenant-a" search="" />);
+
+      expect(screen.getByText('Cancelada até 29/10, com a assinatura nova autorizada')).toBeInTheDocument();
+    });
+  });
+
   describe('histórico de cobranças', () => {
     it('mostra valor, data, situação, tipo e final do cartão de cada cobrança', () => {
       comDados({

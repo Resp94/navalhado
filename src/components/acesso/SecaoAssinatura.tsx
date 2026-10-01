@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { formatCurrency } from '../../lib/currency';
 import { Button, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui';
 import { BotaoAssinar } from './BotaoAssinar';
@@ -33,6 +33,11 @@ interface SecaoAssinaturaProps {
   abrirLink?: (url: string) => void;
   /** Chamado depois de a assinatura ser cancelada: o layout relê o Estado de Acesso e a faixa de cancelada aparece sem recarregar a página. */
   onCancelada?: () => void;
+  /**
+   * Chamado quando a assinatura lida muda de situação com a tela aberta (o aviso do Mercado Pago chegou: a assinatura nova foi
+   * autorizada, por exemplo): o layout relê o Estado de Acesso e a faixa do topo acompanha a tela. Não vale para a primeira leitura.
+   */
+  onSituacaoMudou?: () => void;
 }
 
 /** O que a tela diz e oferece em cada situação. Só quem não tem assinatura ativa vê o botão. */
@@ -68,6 +73,7 @@ export const SecaoAssinatura: React.FC<SecaoAssinaturaProps> = ({
   search = window.location.search,
   abrirLink,
   onCancelada,
+  onSituacaoMudou,
 }) => {
   const { assinatura, cobrancas, status, historicoIndisponivel, diasRestantes, recarregar } =
     useMinhaAssinatura(tenantId);
@@ -77,6 +83,16 @@ export const SecaoAssinatura: React.FC<SecaoAssinaturaProps> = ({
     assinatura !== null && !pagamentoConfirmado(assinatura),
     recarregar,
   );
+
+  // A faixa do topo vem do Estado de Acesso, que o layout lê por conta própria: quando o aviso do Mercado Pago muda a assinatura com
+  // a tela aberta, o layout relê para a faixa não ficar dizendo o que a seção já não diz.
+  const situacaoAnterior = useRef<string | null>(null);
+  const situacaoAgora = assinatura ? `${assinatura.situacao}|${assinatura.assinaturaNovaAutorizada}` : null;
+  useEffect(() => {
+    if (situacaoAgora === null) return;
+    if (situacaoAnterior.current !== null && situacaoAnterior.current !== situacaoAgora) onSituacaoMudou?.();
+    situacaoAnterior.current = situacaoAgora;
+  }, [situacaoAgora, onSituacaoMudou]);
 
   if (status === 'loading') return null;
 

@@ -803,6 +803,7 @@ export const Configuracoes: React.FC = () => {
         tenantId={tenant.tenantId}
         timezone={tenant.timezone}
         onCancelada={tenant.recarregarEstadoDeAcesso}
+        onSituacaoMudou={tenant.recarregarEstadoDeAcesso}
       />
     </form>
   );

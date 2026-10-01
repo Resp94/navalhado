@@ -62,10 +62,18 @@ vi.mock('../../../components/Toast', () => ({
 
 // A seção Assinatura tem os próprios testes; aqui só se confere que ela está na página.
 vi.mock('../../../components/acesso/SecaoAssinatura', () => ({
-  SecaoAssinatura: ({ tenantId, timezone, onCancelada }: { tenantId: string; timezone: string; onCancelada?: () => void }) => (
+  SecaoAssinatura: (
+    { tenantId, timezone, onCancelada, onSituacaoMudou }: {
+      tenantId: string;
+      timezone: string;
+      onCancelada?: () => void;
+      onSituacaoMudou?: () => void;
+    },
+  ) => (
     <section>
       Seção Assinatura de {tenantId} em {timezone}
       <button onClick={onCancelada}>simular assinatura cancelada</button>
+      <button onClick={onSituacaoMudou}>simular situação mudou</button>
     </section>
   ),
 }));
@@ -115,6 +123,20 @@ describe('Configuracoes Page - TDD', () => {
     render(<Configuracoes />);
 
     fireEvent.click(await screen.findByRole('button', { name: 'simular assinatura cancelada' }));
+
+    expect(mockRecarregarEstadoDeAcesso).toHaveBeenCalledTimes(1);
+  });
+
+  // Revisão: o aviso do Mercado Pago chega com a tela aberta e muda a situação da assinatura (a assinatura nova é autorizada, por
+  // exemplo): a faixa do topo, que vem do Estado de Acesso, acompanha.
+  it('quando a situação da assinatura muda com a tela aberta, pede ao layout que releia o Estado de Acesso', async () => {
+    mockSingle.mockResolvedValue({
+      data: { id: 'tenant-test-id', name: 'Barbearia Estilo', email: 'a@b.com', phone: '(92) 98888-8888', address: 'Rua 1', timezone: 'America/Manaus' },
+      error: null,
+    });
+    render(<Configuracoes />);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'simular situação mudou' }));
 
     expect(mockRecarregarEstadoDeAcesso).toHaveBeenCalledTimes(1);
   });
