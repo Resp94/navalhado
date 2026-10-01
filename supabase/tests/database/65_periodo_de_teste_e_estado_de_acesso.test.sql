@@ -169,8 +169,9 @@ select is(pg_temp.estado('recusa_dia6'), 'blocked|payment_failed|2026-09-30T12:0
   'dia 6 da recusa: bloqueado desde o quinto dia');
 
 -- Estado de Acesso: cancelada ------------------------------------------------
-select is(pg_temp.estado('cancelada_no_periodo'), 'allowed|canceled|2026-10-06T12:00:00',
-  'cancelada dentro do periodo pago: liberada ate o fim do periodo');
+-- Ticket 12: liberada com aviso (e nao so liberada), para a faixa dizer "Assinatura cancelada. Acesso ate DD/MM.".
+select is(pg_temp.estado('cancelada_no_periodo'), 'warning|canceled|2026-10-06T12:00:00',
+  'cancelada dentro do periodo pago: liberada com aviso ate o fim do periodo');
 select is(pg_temp.estado('cancelada_no_limite'), 'blocked|canceled|2026-10-01T12:00:00',
   'cancelada no instante do fim do periodo: bloqueada');
 select is(pg_temp.estado('cancelada_vencida'), 'blocked|canceled|2026-09-28T12:00:00',
