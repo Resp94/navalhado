@@ -1,6 +1,6 @@
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(53);
+select plan(57);
 
 -- Spec 052, ticket 12: cancelar a assinatura. A funcao de cobranca cancela no Mercado Pago e grava a situacao
 -- (cancel_subscription); o webhook faz o mesmo quando o Gerente cancela fora do Navalhado
@@ -337,6 +337,34 @@ select is(
    from public.tenant_subscriptions s where s.tenant_id = '74000000-0000-0000-0000-000000000012'),
   'active|sem data|2040-07-01 12:00:00+00',
   'ativa, com o periodo novo'
+);
+
+-- Estado de Acesso da cancelada que assinou de novo. Com a assinatura nova autorizada no Mercado Pago (cancelada, sem a data do
+-- cancelamento e com a bandeira da assinatura nova) a barbearia esta liberada, sem a faixa "Assinatura cancelada": a pessoa
+-- assinou de novo, e a cobranca recomeca no fim do periodo pago. Sem a autorizacao (a pagina do Mercado Pago ainda aberta, ou o
+-- aviso a caminho) e a cancelada de antes, a faixa continua. No fim do periodo, sem o pagamento da assinatura nova, bloqueia.
+select is(
+  pg_temp.estado('74000000-0000-0000-0000-000000000014', '2040-05-20 12:00:00+00'),
+  'allowed|active|2040-06-01T12:00:00',
+  'a cancelada que assinou de novo e teve a assinatura nova autorizada fica liberada, sem a faixa de cancelada'
+);
+
+select is(
+  pg_temp.estado('74000000-0000-0000-0000-000000000014', '2040-06-01 12:00:00+00'),
+  'blocked|canceled|2040-06-01T12:00:00',
+  'no fim do periodo, sem o pagamento da assinatura nova, bloqueia como qualquer cancelada'
+);
+
+select is(
+  pg_temp.estado('74000000-0000-0000-0000-000000000013', '2040-05-20 12:00:00+00'),
+  'warning|canceled|2040-06-01T12:00:00',
+  'a que assinou de novo e ainda nao autorizou a assinatura nova segue com a faixa de cancelada'
+);
+
+select is(
+  pg_temp.estado('74000000-0000-0000-0000-000000000015', '2040-05-20 12:00:00+00'),
+  'warning|canceled|2040-06-01T12:00:00',
+  'a cancelada de antes, sem assinatura no Mercado Pago, segue com a faixa de cancelada'
 );
 
 -- Cancelar a assinatura nova (cancelada que assinou de novo e ainda nao pagou): pelo Navalhado e pelo aviso do Mercado Pago.
