@@ -2,6 +2,7 @@ import React from 'react';
 import { HugeiconsIcon } from '@hugeicons/react';
 import { Download04Icon } from '@hugeicons/core-free-icons';
 import { Button } from '../ui';
+import { AVISO_DE_ARQUIVOS_BAIXADOS } from '../../modules/exportacao/mensagens';
 import { useExportarDados } from '../../modules/exportacao/useExportarDados';
 
 interface BotaoExportarDadosProps {
@@ -17,7 +18,7 @@ interface BotaoExportarDadosProps {
  * qualquer momento, inclusive com a barbearia bloqueada. Só o Gerente vê: quem monta a tela decide.
  */
 export const BotaoExportarDados: React.FC<BotaoExportarDadosProps> = ({ tenantId, timezone, fullWidth }) => {
-  const { exportar, exportando, erro } = useExportarDados(tenantId, timezone);
+  const { exportar, exportando, erro, concluido } = useExportarDados(tenantId, timezone);
 
   return (
     <div className={`flex flex-col gap-2${fullWidth ? '' : ' items-start'}`}>
@@ -33,6 +34,11 @@ export const BotaoExportarDados: React.FC<BotaoExportarDadosProps> = ({ tenantId
       {erro && (
         <p role="alert" className="text-sm text-error m-0">
           {erro}
+        </p>
+      )}
+      {concluido && (
+        <p role="status" className="text-sm text-text-secondary m-0">
+          {AVISO_DE_ARQUIVOS_BAIXADOS}
         </p>
       )}
     </div>

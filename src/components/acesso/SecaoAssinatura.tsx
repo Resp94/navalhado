@@ -20,6 +20,7 @@ import {
   temCobrancaNoCartao,
 } from '../../modules/assinatura/apresentacaoDaAssinatura';
 import type { SituacaoDaAssinatura } from '../../modules/assinatura/situacaoDaAssinatura';
+import { DESCRICAO_DA_EXPORTACAO } from '../../modules/exportacao/mensagens';
 import { useMinhaAssinatura } from '../../modules/assinatura/useMinhaAssinatura';
 import { useRetornoDoPagamento } from '../../modules/assinatura/useRetornoDoPagamento';
 
@@ -104,13 +105,12 @@ export const SecaoAssinatura: React.FC<SecaoAssinaturaProps> = ({
   );
 
   // Os dados são da barbearia, e não da assinatura (ticket 14): a exportação aparece em qualquer situação, até quando a assinatura
-  // não carrega.
+  // não carrega. O `key` mantém o bloco (e a exportação em andamento) no lugar quando a seção troca de cartão (erro, sem assinatura,
+  // assinatura): sem ele o React o desmontaria, porque em cada cartão ele fica numa posição diferente.
   const exportacao = (
-    <div className="flex flex-col gap-2 border-t border-border pt-4">
+    <div key="seus-dados" className="flex flex-col gap-2 border-t border-border pt-4">
       <h4 className="text-sm font-extrabold m-0 text-text-primary">Seus dados</h4>
-      <p className="text-sm text-text-secondary m-0">
-        Os dados da barbearia são seus: baixe os clientes, os agendamentos e as comandas em planilhas CSV, uma para cada, quando quiser.
-      </p>
+      <p className="text-sm text-text-secondary m-0">{DESCRICAO_DA_EXPORTACAO}</p>
       <div>
         <BotaoExportarDados tenantId={tenantId} timezone={timezone} />
       </div>

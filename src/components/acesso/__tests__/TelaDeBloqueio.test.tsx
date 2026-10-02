@@ -219,6 +219,21 @@ describe('TelaDeBloqueio', () => {
 
       expect(screen.queryByTestId('exportar-dados')).not.toBeInTheDocument();
     });
+
+    // É a tela em que o Gerente que está saindo leva os dados pela última vez: ela diz o que vai nos arquivos.
+    it('diz o que o Gerente baixa, junto do botão', () => {
+      render(<TelaDeBloqueio motivo="canceled" perfil="gerente" tenantName="Alpha" tenantId="tenant-1" onLogout={vi.fn()} />);
+
+      expect(screen.getByText(/baixe os clientes, os agendamentos e as comandas em planilhas CSV, uma para cada/i)).toBeInTheDocument();
+    });
+
+    it('sem a barbearia identificada, ou para o Barbeiro, também não promete arquivo nenhum', () => {
+      const { rerender } = render(<TelaDeBloqueio motivo="canceled" perfil="gerente" tenantName="Alpha" onLogout={vi.fn()} />);
+      expect(screen.queryByText(/planilhas CSV/i)).not.toBeInTheDocument();
+
+      rerender(<TelaDeBloqueio motivo="canceled" perfil="barbeiro" tenantName="Alpha" tenantId="tenant-1" onLogout={vi.fn()} />);
+      expect(screen.queryByText(/planilhas CSV/i)).not.toBeInTheDocument();
+    });
   });
 
   describe('Barbeiro', () => {

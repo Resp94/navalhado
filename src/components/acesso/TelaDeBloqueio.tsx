@@ -5,6 +5,7 @@ import { BotaoExportarDados } from './BotaoExportarDados';
 import { CancelarAssinatura } from './CancelarAssinatura';
 import { TrocarCartao } from './TrocarCartao';
 import { explicacaoDoBloqueio, tituloDoBloqueio } from '../../modules/assinatura/mensagensDeAcesso';
+import { DESCRICAO_DA_EXPORTACAO } from '../../modules/exportacao/mensagens';
 import type { AssinaturaCancelavel, MotivoDeAcesso, PerfilNoBloqueio } from '../../modules/assinatura/types';
 
 interface TelaDeBloqueioProps {
@@ -93,7 +94,12 @@ export const TelaDeBloqueio: React.FC<TelaDeBloqueioProps> = ({
           <CancelarAssinatura assinatura={ASSINATURA_BLOQUEADA} onCancelada={onCancelada} />
         )}
 
-        {perfil === 'gerente' && tenantId && <BotaoExportarDados tenantId={tenantId} timezone={timezone} fullWidth />}
+        {perfil === 'gerente' && tenantId && (
+          <div className="flex flex-col gap-2">
+            <p className="m-0 text-sm text-text-secondary">{DESCRICAO_DA_EXPORTACAO}</p>
+            <BotaoExportarDados tenantId={tenantId} timezone={timezone} fullWidth />
+          </div>
+        )}
 
         <Button variant="ghost" fullWidth onClick={onLogout}>
           Sair da conta

@@ -1,11 +1,13 @@
+import { useEffect } from 'react';
 import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Cobranca, DetalhesDaAssinatura } from '../../../modules/assinatura/types';
 
-const { mockAssinar, mockUseMinhaAssinatura } = vi.hoisted(() => ({
+const { mockAssinar, mockUseMinhaAssinatura, montagensDoBotao } = vi.hoisted(() => ({
   mockAssinar: vi.fn(),
   mockUseMinhaAssinatura: vi.fn(),
+  montagensDoBotao: vi.fn(),
 }));
 
 vi.mock('../../../modules/assinatura/repositorio', () => ({
@@ -79,9 +81,13 @@ vi.mock('../CancelarAssinatura', () => ({
 // A exportação (leitura, CSV, download) tem teste próprio (BotaoExportarDados.test e o módulo exportacao); aqui só interessa quando a
 // seção a oferece e para qual barbearia.
 vi.mock('../BotaoExportarDados', () => ({
-  BotaoExportarDados: ({ tenantId, timezone }: { tenantId: string; timezone?: string }) => (
-    <div data-testid="exportar-dados">{`${tenantId} ${timezone ?? 'sem fuso'}`}</div>
-  ),
+  BotaoExportarDados: ({ tenantId, timezone }: { tenantId: string; timezone?: string }) => {
+    // Conta as montagens: um botão que remonta perde o estado da exportação em andamento.
+    useEffect(() => {
+      montagensDoBotao();
+    }, []);
+    return <div data-testid="exportar-dados">{`${tenantId} ${timezone ?? 'sem fuso'}`}</div>;
+  },
 }));
 
 import { SecaoAssinatura } from '../SecaoAssinatura';
@@ -149,6 +155,7 @@ describe('SecaoAssinatura', () => {
     vi.setSystemTime(new Date('2026-10-01T12:00:00Z'));
     mockAssinar.mockReset();
     mockUseMinhaAssinatura.mockReset();
+    montagensDoBotao.mockReset();
     recarregar.mockReset();
   });
 
@@ -747,6 +754,25 @@ describe('SecaoAssinatura', () => {
       renderizar();
 
       expect(screen.queryByTestId('exportar-dados')).not.toBeInTheDocument();
+    });
+
+    // A exportação leva segundos. Se a leitura da assinatura termina nesse meio tempo (o "Tentar de novo", ou a confirmação do
+    // pagamento que chega), a seção troca de cartão: o botão não pode ser desmontado, senão perde o estado e o Gerente clica de
+    // novo no meio de uma exportação que ainda corre.
+    it.each([
+      ['falha ao carregar', 'sem assinatura', { status: 'error', assinatura: null }, { assinatura: null }],
+      ['falha ao carregar', 'assinatura carregada', { status: 'error', assinatura: null }, {}],
+      ['sem assinatura', 'assinatura carregada', { assinatura: null }, {}],
+    ] as const)('o botão não remonta quando a seção passa de "%s" para "%s"', (_de, _para, antes, depois) => {
+      comDados({ ...antes });
+      const { rerender } = render(<SecaoAssinatura tenantId="tenant-a" search="" />);
+      expect(montagensDoBotao).toHaveBeenCalledTimes(1);
+
+      comDados({ ...depois });
+      rerender(<SecaoAssinatura tenantId="tenant-a" search="" />);
+
+      expect(screen.getByTestId('exportar-dados')).toBeInTheDocument();
+      expect(montagensDoBotao).toHaveBeenCalledTimes(1);
     });
   });
 

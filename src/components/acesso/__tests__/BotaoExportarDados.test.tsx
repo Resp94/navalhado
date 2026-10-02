@@ -16,8 +16,8 @@ import { BotaoExportarDados } from '../BotaoExportarDados';
 describe('BotaoExportarDados', () => {
   const exportar = vi.fn();
 
-  const hook = (estado: { exportando?: boolean; erro?: string | null } = {}) =>
-    mockUseExportarDados.mockReturnValue({ exportar, exportando: false, erro: null, ...estado });
+  const hook = (estado: { exportando?: boolean; erro?: string | null; concluido?: boolean } = {}) =>
+    mockUseExportarDados.mockReturnValue({ exportar, exportando: false, erro: null, concluido: false, ...estado });
 
   beforeEach(() => {
     exportar.mockReset();
@@ -59,5 +59,26 @@ describe('BotaoExportarDados', () => {
     expect(screen.getByRole('alert')).toHaveTextContent('Não foi possível exportar os dados. Tente de novo.');
     await userEvent.click(screen.getByRole('button', { name: 'Exportar dados' }));
     expect(exportar).toHaveBeenCalledTimes(1);
+  });
+
+  // O navegador pode barrar o 2º e o 3º download sem avisar a página: depois do último, a tela diz o que baixou e o que fazer se faltar.
+  it('depois de baixar, confirma os três arquivos e diz o que fazer se algum faltar', () => {
+    hook({ concluido: true });
+    render(<BotaoExportarDados tenantId="tenant-1" />);
+
+    const aviso = screen.getByRole('status');
+    expect(aviso).toHaveTextContent(/clientes, os agendamentos e as comandas/i);
+    expect(aviso).toHaveTextContent(/libere o download de vários arquivos/i);
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+
+  it('antes de exportar, e enquanto exporta, não mostra o aviso de arquivos baixados', () => {
+    hook();
+    const { rerender } = render(<BotaoExportarDados tenantId="tenant-1" />);
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+
+    hook({ exportando: true });
+    rerender(<BotaoExportarDados tenantId="tenant-1" />);
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
   });
 });
