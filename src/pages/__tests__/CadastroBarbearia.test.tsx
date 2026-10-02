@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { CadastroBarbearia } from '../CadastroBarbearia';
+import { POLITICA_DE_PRIVACIDADE, TERMOS_DE_USO, VERSAO_ATUAL_DOS_TERMOS } from '../../modules/termos/textos';
 
 const { mockAddToast, mockNavigate, mockFrom, mockSignUp } = vi.hoisted(() => ({
   mockAddToast: vi.fn(),
@@ -59,6 +60,9 @@ const avancarParaEtapaDoGestor = async () => {
   fireEvent.change(screen.getByPlaceholderText('Mínimo 8 caracteres'), { target: { value: 'SenhaForte123!' } });
 };
 
+// Spec 052, ticket 16: o cadastro exige marcar o aceite dos Termos de Uso e da Política de Privacidade.
+const aceitarOsTermos = () => fireEvent.click(screen.getByRole('checkbox', { name: /Li e aceito/ }));
+
 describe('CadastroBarbearia', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -79,11 +83,13 @@ describe('CadastroBarbearia', () => {
     render(<CadastroBarbearia />);
 
     await avancarParaEtapaDoGestor();
+    aceitarOsTermos();
     const submitButton = screen.getByRole('button', { name: 'Criar conta' });
     await waitFor(() => expect(submitButton).toBeEnabled());
     fireEvent.click(submitButton);
 
-    // Sem escolher nada, o plano do meio (Máquina) já vem selecionado.
+    // Sem escolher nada, o plano do meio (Máquina) já vem selecionado. O aceite vai como a versão dos termos (o banco grava a
+    // versão e a data); a autoridade, o plano e a barbearia continuam sendo decididos no servidor.
     await waitFor(() => {
       expect(mockSignUp).toHaveBeenCalledWith({
         email: 'gestor@segura.test',
@@ -91,6 +97,7 @@ describe('CadastroBarbearia', () => {
         options: {
           data: {
             name: 'Gestor Seguro',
+            terms_version: VERSAO_ATUAL_DOS_TERMOS,
             tenant_signup: {
               name: 'Barbearia Segura',
               email: 'contato@segura.test',
@@ -112,6 +119,7 @@ describe('CadastroBarbearia', () => {
 
     render(<CadastroBarbearia />);
     await avancarParaEtapaDoGestor();
+    aceitarOsTermos();
 
     const submitButton = screen.getByRole('button', { name: 'Criar conta' });
     await waitFor(() => expect(submitButton).toBeEnabled());
@@ -169,6 +177,7 @@ describe('CadastroBarbearia', () => {
     await avancarParaEtapaDoGestor();
 
     fireEvent.click(await screen.findByText('Bancada'));
+    aceitarOsTermos();
     const submitButton = screen.getByRole('button', { name: 'Criar conta' });
     await waitFor(() => expect(submitButton).toBeEnabled());
     fireEvent.click(submitButton);
@@ -183,6 +192,90 @@ describe('CadastroBarbearia', () => {
           },
         })
       );
+    });
+  });
+
+  // Spec 052, ticket 16: o cadastro exige marcar "Li e aceito" e manda a versão dos termos aceita; o banco grava a versão e a data.
+  describe('aceite dos Termos de Uso', () => {
+    it('começa sem aceitar, e "Criar conta" fica travado até marcar o aceite', async () => {
+      render(<CadastroBarbearia />);
+      await avancarParaEtapaDoGestor();
+      await screen.findByText('Tesoura');
+
+      expect(screen.getByRole('checkbox', { name: /Li e aceito/ })).not.toBeChecked();
+      expect(screen.getByRole('button', { name: 'Criar conta' })).toBeDisabled();
+
+      aceitarOsTermos();
+      await waitFor(() => expect(screen.getByRole('button', { name: 'Criar conta' })).toBeEnabled());
+    });
+
+    it('desmarcar o aceite trava "Criar conta" de novo', async () => {
+      render(<CadastroBarbearia />);
+      await avancarParaEtapaDoGestor();
+      await screen.findByText('Tesoura');
+
+      aceitarOsTermos();
+      await waitFor(() => expect(screen.getByRole('button', { name: 'Criar conta' })).toBeEnabled());
+      aceitarOsTermos();
+
+      expect(screen.getByRole('button', { name: 'Criar conta' })).toBeDisabled();
+    });
+
+    it('não envia o cadastro sem o aceite, mesmo com o formulário enviado fora do botão', async () => {
+      render(<CadastroBarbearia />);
+      await avancarParaEtapaDoGestor();
+      await screen.findByText('Tesoura');
+
+      fireEvent.submit(screen.getByRole('button', { name: 'Criar conta' }).closest('form') as HTMLFormElement);
+
+      expect(mockSignUp).not.toHaveBeenCalled();
+      expect(mockAddToast).toHaveBeenCalledWith(expect.stringMatching(/Termos de Uso/), 'warning');
+    });
+
+    it('manda a versão atual dos termos junto do cadastro', async () => {
+      render(<CadastroBarbearia />);
+      await avancarParaEtapaDoGestor();
+      aceitarOsTermos();
+      const submitButton = screen.getByRole('button', { name: 'Criar conta' });
+      await waitFor(() => expect(submitButton).toBeEnabled());
+
+      fireEvent.click(submitButton);
+
+      await waitFor(() => {
+        expect(mockSignUp).toHaveBeenCalledWith(
+          expect.objectContaining({
+            options: { data: expect.objectContaining({ terms_version: VERSAO_ATUAL_DOS_TERMOS }) },
+          })
+        );
+      });
+    });
+
+    it('os links do aceite abrem os Termos de Uso e a Política de Privacidade da plataforma, sem marcar o aceite', async () => {
+      render(<CadastroBarbearia />);
+      await avancarParaEtapaDoGestor();
+
+      fireEvent.click(screen.getByRole('button', { name: 'Termos de Uso' }));
+      expect(screen.getByRole('heading', { name: TERMOS_DE_USO.titulo })).toBeInTheDocument();
+      expect(screen.getByRole('heading', { name: TERMOS_DE_USO.secoes[2].titulo })).toBeInTheDocument();
+      fireEvent.click(screen.getByRole('button', { name: 'Fechar' }));
+
+      fireEvent.click(screen.getByRole('button', { name: 'Política de Privacidade' }));
+      expect(screen.getByRole('heading', { name: POLITICA_DE_PRIVACIDADE.titulo })).toBeInTheDocument();
+      fireEvent.click(screen.getByRole('button', { name: 'Fechar' }));
+
+      expect(screen.getByRole('checkbox', { name: /Li e aceito/ })).not.toBeChecked();
+    });
+
+    it('os links do rodapé também abrem os textos da plataforma, com as cláusulas da assinatura', () => {
+      render(<CadastroBarbearia />);
+
+      fireEvent.click(screen.getByRole('button', { name: 'Termos de uso' }));
+      expect(screen.getByRole('heading', { name: TERMOS_DE_USO.titulo })).toBeInTheDocument();
+      expect(screen.getByRole('heading', { name: '3. Preço e renovação mensal automática' })).toBeInTheDocument();
+      fireEvent.click(screen.getByRole('button', { name: 'Fechar' }));
+
+      fireEvent.click(screen.getByRole('button', { name: 'Privacidade (LGPD)' }));
+      expect(screen.getByRole('heading', { name: POLITICA_DE_PRIVACIDADE.titulo })).toBeInTheDocument();
     });
   });
 

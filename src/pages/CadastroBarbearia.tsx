@@ -3,8 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useToast } from '../components/Toast';
 import { Input } from '../components/Input';
-import { LegalModal } from '../components/legal/LegalModal';
+import { Checkbox } from '../components/ui';
+import { TermosDaPlataformaModal } from '../components/termos/TermosDaPlataformaModal';
 import { usePlanos } from '../modules/planos/usePlanos';
+import { VERSAO_ATUAL_DOS_TERMOS } from '../modules/termos/textos';
+import type { DocumentoLegal } from '../modules/termos/types';
 import { pluralizar } from '../lib/plural';
 import { ArrowRightIcon, SuccessIcon } from '../components/Icons';
 import { isValidEmailFormat, verifyEmailDomain, suggestEmailDomainCorrection } from '../lib/email';
@@ -33,7 +36,7 @@ export const CadastroBarbearia: React.FC = () => {
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
-  const [legalModalMode, setLegalModalMode] = useState<'privacy' | 'terms' | null>(null);
+  const [legalModalMode, setLegalModalMode] = useState<DocumentoLegal | null>(null);
 
   // --- Etapa 1: Dados da Barbearia ---
   const [barbeariaNome, setBarbeariaNome] = useState('');
@@ -48,6 +51,8 @@ export const CadastroBarbearia: React.FC = () => {
   const { planos, status: planosStatus, planoPadraoId } = usePlanos();
   const [planoEscolhido, setPlanoEscolhido] = useState<string | null>(null);
   const planoSelecionado = planoEscolhido ?? planoPadraoId ?? '';
+  // Aceite dos Termos de Uso e da Política de Privacidade (spec 052, ticket 16): o cadastro só segue com ele marcado.
+  const [aceitouOsTermos, setAceitouOsTermos] = useState(false);
 
   // --- Erros de Validação ---
   const [emailBarbeariaError, setEmailBarbeariaError] = useState('');
@@ -183,6 +188,10 @@ export const CadastroBarbearia: React.FC = () => {
       addToast('Corrija os campos pendentes antes de enviar.', 'warning');
       return;
     }
+    if (!aceitouOsTermos) {
+      addToast('Para criar a conta, aceite os Termos de Uso e a Política de Privacidade.', 'warning');
+      return;
+    }
     if (isValidEmailFormat(gestorEmail)) {
       const dominio = gestorEmail.split('@')[1] || '';
       const resultado = await verifyEmailDomain(dominio);
@@ -196,13 +205,15 @@ export const CadastroBarbearia: React.FC = () => {
     setLoading(true);
 
     try {
-      // O trigger de Auth cria tenant, assinatura e gerente na mesma transação.
+      // O trigger de Auth cria tenant, assinatura e gerente na mesma transação, e grava o aceite da versão dos termos (a data é a
+      // do banco). Quem escolhe o plano e a barbearia continua sendo o servidor.
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: gestorEmail,
         password: gestorSenha,
         options: {
           data: {
             name: gestorNome,
+            terms_version: VERSAO_ATUAL_DOS_TERMOS,
             tenant_signup: {
               name: barbeariaNome,
               email: barbeariaEmail,
@@ -236,7 +247,7 @@ export const CadastroBarbearia: React.FC = () => {
 
   const isStep1Disabled = !barbeariaNome || !barbeariaEmail || !barbeariaPhone || !!emailBarbeariaError || !!phoneBarbeariaError;
   const isSubmitDisabled =
-    loading || planosStatus !== 'ready' || !planoSelecionado || !gestorNome || !gestorEmail || !gestorSenha || !!emailGestorError || !!senhaGestorError;
+    loading || planosStatus !== 'ready' || !planoSelecionado || !gestorNome || !gestorEmail || !gestorSenha || !!emailGestorError || !!senhaGestorError || !aceitouOsTermos;
 
   if (success) {
     return (
@@ -491,6 +502,35 @@ export const CadastroBarbearia: React.FC = () => {
                     </div>
                   </div>
 
+                  {/* Aceite dos Termos de Uso e da Política de Privacidade */}
+                  <div className="flex flex-col gap-1">
+                    <Checkbox
+                      checked={aceitouOsTermos}
+                      onChange={(e) => setAceitouOsTermos(e.target.checked)}
+                      disabled={loading}
+                      label="Li e aceito os Termos de Uso e a Política de Privacidade."
+                    />
+                    <p className="m-0 pl-[1.65rem] text-xs text-text-secondary">
+                      Leia os{' '}
+                      <button
+                        type="button"
+                        className="bg-none border-none p-0 text-brand-primary underline cursor-pointer font-semibold"
+                        onClick={() => setLegalModalMode('termos')}
+                      >
+                        Termos de Uso
+                      </button>{' '}
+                      e a{' '}
+                      <button
+                        type="button"
+                        className="bg-none border-none p-0 text-brand-primary underline cursor-pointer font-semibold"
+                        onClick={() => setLegalModalMode('privacidade')}
+                      >
+                        Política de Privacidade
+                      </button>
+                      .
+                    </p>
+                  </div>
+
                   <div className="mt-2 flex gap-4">
                     <button
                       type="button"
@@ -538,7 +578,7 @@ export const CadastroBarbearia: React.FC = () => {
                 <button
                   type="button"
                   className="bg-none border-none p-0 text-inherit underline cursor-pointer"
-                  onClick={() => setLegalModalMode('terms')}
+                  onClick={() => setLegalModalMode('termos')}
                 >
                   Termos de uso
                 </button>
@@ -546,7 +586,7 @@ export const CadastroBarbearia: React.FC = () => {
                 <button
                   type="button"
                   className="bg-none border-none p-0 text-inherit underline cursor-pointer"
-                  onClick={() => setLegalModalMode('privacy')}
+                  onClick={() => setLegalModalMode('privacidade')}
                 >
                   Privacidade (LGPD)
                 </button>
@@ -558,10 +598,10 @@ export const CadastroBarbearia: React.FC = () => {
 
       {/* ─── MODAL LGPD / TERMOS ─── */}
       {legalModalMode && (
-        <LegalModal
+        <TermosDaPlataformaModal
           isOpen={!!legalModalMode}
           onClose={() => setLegalModalMode(null)}
-          mode={legalModalMode}
+          documento={legalModalMode}
         />
       )}
     </>

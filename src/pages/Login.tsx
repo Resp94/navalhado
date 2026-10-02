@@ -4,7 +4,8 @@ import { supabase } from '../lib/supabase';
 import { useToast } from '../components/Toast';
 import { Input } from '../components/Input';
 import { Modal } from '../components/Modal';
-import { LegalModal } from '../components/legal/LegalModal';
+import { TermosDaPlataformaModal } from '../components/termos/TermosDaPlataformaModal';
+import type { DocumentoLegal } from '../modules/termos/types';
 import { ArrowRightIcon, LockIcon } from '../components/Icons';
 import { isValidEmailFormat } from '../lib/email';
 
@@ -125,7 +126,7 @@ export const Login: React.FC = () => {
   const [resetEmail, setResetEmail] = useState('');
   const [resetLoading, setResetLoading] = useState(false);
   const [resetEmailError, setResetEmailError] = useState('');
-  const [legalModalMode, setLegalModalMode] = useState<'privacy' | 'terms' | null>(null);
+  const [legalModalMode, setLegalModalMode] = useState<DocumentoLegal | null>(null);
 
   // --- Validação inline em tempo real ---
   useEffect(() => {
@@ -430,7 +431,7 @@ export const Login: React.FC = () => {
                   <button
                     type="button"
                     className="bg-none border-none px-2 py-1 text-text-primary underline underline-offset-2 cursor-pointer text-xs min-h-8 inline-flex items-center transition-opacity duration-150 hover:opacity-75"
-                    onClick={() => setLegalModalMode('terms')}
+                    onClick={() => setLegalModalMode('termos')}
                   >
                     Termos de uso
                   </button>
@@ -438,7 +439,7 @@ export const Login: React.FC = () => {
                   <button
                     type="button"
                     className="bg-none border-none px-2 py-1 text-text-primary underline underline-offset-2 cursor-pointer text-xs min-h-8 inline-flex items-center transition-opacity duration-150 hover:opacity-75"
-                    onClick={() => setLegalModalMode('privacy')}
+                    onClick={() => setLegalModalMode('privacidade')}
                   >
                     Privacidade (LGPD)
                   </button>
@@ -451,10 +452,10 @@ export const Login: React.FC = () => {
 
       {/* ─── MODAL LGPD / TERMOS ─── */}
       {legalModalMode && (
-        <LegalModal
+        <TermosDaPlataformaModal
           isOpen={!!legalModalMode}
           onClose={() => setLegalModalMode(null)}
-          mode={legalModalMode}
+          documento={legalModalMode}
         />
       )}
 

@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Login } from '../Login';
+import { POLITICA_DE_PRIVACIDADE, TERMOS_DE_USO } from '../../modules/termos/textos';
 
 const { mockAddToast, mockNavigate, mockSignIn, mockSignOut, mockSingle, mockResend } = vi.hoisted(() => ({
   mockAddToast: vi.fn(),
@@ -62,6 +63,29 @@ describe('Login', () => {
     expect(screen.getByRole('button', { name: 'Criar conta' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Termos de uso' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Privacidade (LGPD)' })).toBeInTheDocument();
+  });
+
+  // Spec 052, ticket 16: os links do rodapé abrem os Termos de Uso e a Política de Privacidade da plataforma, com as cláusulas da
+  // assinatura (o Canal do Cliente tem o próprio texto).
+  it('"Termos de uso" abre os Termos de Uso da plataforma, com a cláusula de renovação mensal automática', () => {
+    render(<Login />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Termos de uso' }));
+
+    expect(screen.getByRole('heading', { name: TERMOS_DE_USO.titulo })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /renovação mensal automática/ })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Fechar' }));
+    expect(screen.queryByRole('heading', { name: TERMOS_DE_USO.titulo })).not.toBeInTheDocument();
+  });
+
+  it('"Privacidade (LGPD)" abre a Política de Privacidade da plataforma, com a guarda dos dados depois do cancelamento', () => {
+    render(<Login />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Privacidade (LGPD)' }));
+
+    expect(screen.getByRole('heading', { name: POLITICA_DE_PRIVACIDADE.titulo })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /depois do cancelamento/ })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: TERMOS_DE_USO.titulo })).not.toBeInTheDocument();
   });
 
   it('recusa e-mail com TLD de 1 letra (regra mais rígida da spec 047) e mantém "Acessar" desabilitado', async () => {
