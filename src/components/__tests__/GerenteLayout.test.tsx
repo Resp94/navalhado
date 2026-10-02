@@ -595,20 +595,65 @@ describe('GerenteLayout Gatekeeper', () => {
         erro.mockRestore();
       });
 
-      // Quem vai pagar está contratando: o aceite vem antes da tela de bloqueio (e do "Pagar" dela).
-      it('bloqueado e sem o aceite: o aceite vem antes da tela de bloqueio, e aceitar leva a ela', async () => {
+      // O aceite condiciona entrar e contratar, e não sair: com a barbearia bloqueada a tela de bloqueio continua a tela, com o pedido de
+      // aceite no lugar do "Pagar" (que contrata uma assinatura); exportar os dados e cancelar a assinatura seguem nela.
+      it('bloqueado e sem o aceite: a tela de bloqueio segue, com o aceite no lugar do "Pagar", e aceitar traz o "Pagar"', async () => {
         painelDaBarbearia('/agenda');
         estadoDoBanco('blocked', 'trial_expired', '2026-09-29T12:00:00Z');
         mockJaAceitouTermos.mockResolvedValue(false);
         render(<GerenteLayout />);
 
-        expect(await screen.findByRole('heading', { name: TITULO_DO_ACEITE })).toBeInTheDocument();
-        expect(screen.queryByRole('heading', { name: 'Seu período de teste terminou' })).not.toBeInTheDocument();
+        expect(await screen.findByRole('heading', { name: 'Seu período de teste terminou' })).toBeInTheDocument();
+        expect(screen.queryByRole('heading', { name: TITULO_DO_ACEITE })).not.toBeInTheDocument();
         expect(screen.queryByRole('button', { name: 'Pagar' })).not.toBeInTheDocument();
+        expect(screen.getByText(/Para pagar, aceite antes os Termos de Uso/)).toBeInTheDocument();
 
         await aceitarNaTela();
 
-        expect(await screen.findByRole('heading', { name: 'Seu período de teste terminou' })).toBeInTheDocument();
+        expect(mockAceitarTermos).toHaveBeenCalledWith(VERSAO_ATUAL_DOS_TERMOS);
+        expect(await screen.findByRole('button', { name: 'Pagar' })).toBeEnabled();
+        expect(screen.queryByRole('checkbox', { name: /Li e aceito/ })).not.toBeInTheDocument();
+      });
+
+      it('bloqueado por estorno e sem o aceite: exportar os dados e cancelar a assinatura seguem disponíveis, sem aceitar', async () => {
+        painelDaBarbearia('/agenda', true, '', 'America/Manaus');
+        estadoDoBanco('blocked', 'refunded', '2026-09-29T12:00:00Z');
+        mockJaAceitouTermos.mockResolvedValue(false);
+        mockGerarArquivos.mockResolvedValue([{ nome: 'clientes_2026-10-01.csv', conteudo: 'conteudo' }]);
+        render(<GerenteLayout />);
+
+        expect(await screen.findByRole('button', { name: 'simular assinatura cancelada' })).toBeInTheDocument();
+        await userEvent.click(screen.getByRole('button', { name: 'Exportar dados' }));
+
+        await waitFor(() => expect(mockBaixarCsv).toHaveBeenCalledWith('clientes_2026-10-01.csv', 'conteudo'));
+        expect(mockGerarArquivos).toHaveBeenCalledWith('tenant-123', 'America/Manaus', { sinal: expect.any(AbortSignal) });
+        expect(mockAceitarTermos).not.toHaveBeenCalled();
+      });
+
+      it('bloqueado por pagamento recusado e sem o aceite: o Gerente troca o cartão, que não contrata nada, sem aceitar', async () => {
+        painelDaBarbearia('/agenda');
+        estadoDoBanco('blocked', 'payment_failed', '2026-09-29T12:00:00Z');
+        mockJaAceitouTermos.mockResolvedValue(false);
+        render(<GerenteLayout />);
+
+        expect(await screen.findByRole('heading', { name: 'O pagamento da assinatura não foi aprovado' })).toBeInTheDocument();
+        expect(screen.queryByRole('checkbox', { name: /Li e aceito/ })).not.toBeInTheDocument();
+        expect(screen.queryByRole('heading', { name: TITULO_DO_ACEITE })).not.toBeInTheDocument();
+      });
+
+      it('sem bloqueio e sem o aceite: quem não aceita ainda exporta os dados da barbearia, no fuso dela', async () => {
+        painelDaBarbearia('/agenda', true, '', 'America/Manaus');
+        estadoDoBanco('allowed', 'active');
+        mockJaAceitouTermos.mockResolvedValue(false);
+        mockGerarArquivos.mockResolvedValue([{ nome: 'clientes_2026-10-01.csv', conteudo: 'conteudo' }]);
+        render(<GerenteLayout />);
+
+        await userEvent.click(await screen.findByRole('button', { name: 'Exportar dados' }));
+
+        await waitFor(() => expect(mockBaixarCsv).toHaveBeenCalledWith('clientes_2026-10-01.csv', 'conteudo'));
+        expect(mockGerarArquivos).toHaveBeenCalledWith('tenant-123', 'America/Manaus', { sinal: expect.any(AbortSignal) });
+        expect(screen.queryByTestId('outlet')).not.toBeInTheDocument();
+        expect(mockAceitarTermos).not.toHaveBeenCalled();
       });
 
       it('o aceite vem antes do onboarding', async () => {

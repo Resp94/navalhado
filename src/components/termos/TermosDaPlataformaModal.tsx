@@ -12,7 +12,8 @@ interface TermosDaPlataformaModalProps {
 
 /**
  * Os Termos de Uso e a Política de Privacidade da plataforma, que quem administra a barbearia aceita (cadastro, login e tela de
- * aceite). O Canal do Cliente tem o próprio texto (`LegalModal`): o cliente da barbearia não contrata a assinatura.
+ * aceite). O Canal do Cliente não tem termo nem privacidade na tela (os links saíram na spec 026): o cliente da barbearia não
+ * contrata a assinatura, e um texto para ele é decisão à parte.
  */
 export const TermosDaPlataformaModal: React.FC<TermosDaPlataformaModalProps> = ({ isOpen, onClose, documento }) => {
   const texto = textoDoDocumento(documento);

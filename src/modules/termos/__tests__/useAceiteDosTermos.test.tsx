@@ -65,18 +65,91 @@ describe('useAceiteDosTermos', () => {
     expect(erroNoLog).toHaveBeenCalledWith('Erro ao ler o aceite dos termos:', expect.any(Error));
   });
 
-  it('aceita uma versão passada por quem chama', async () => {
-    mockJaAceitou.mockResolvedValue(false);
+  // A leitura que falhou (rede, ou a migration ainda não aplicada no ambiente) não deixa a aba aberta sem a tela de aceite para sempre:
+  // quando o Gerente volta à aba, o hook lê de novo (como o useEstadoDeAcesso).
+  describe('depois de uma leitura que falhou', () => {
+    const voltarParaAAba = () =>
+      act(() => {
+        document.dispatchEvent(new Event('visibilitychange'));
+      });
 
-    const { result } = renderHook(() => useAceiteDosTermos('2027-01-01'));
+    it('relê quando a aba volta a ficar visível e, com o aceite pendente, passa a "pendente"', async () => {
+      mockJaAceitou.mockRejectedValueOnce(new Error('sem rede')).mockResolvedValueOnce(false);
+      const { result } = renderHook(() => useAceiteDosTermos());
+      await waitFor(() => expect(result.current.situacao).toBe('indisponivel'));
+
+      voltarParaAAba();
+
+      await waitFor(() => expect(result.current.situacao).toBe('pendente'));
+      expect(mockJaAceitou).toHaveBeenCalledTimes(2);
+    });
+
+    it('com o aceite já gravado, a releitura passa a "aceito"', async () => {
+      mockJaAceitou.mockRejectedValueOnce(new Error('sem rede')).mockResolvedValueOnce(true);
+      const { result } = renderHook(() => useAceiteDosTermos());
+      await waitFor(() => expect(result.current.situacao).toBe('indisponivel'));
+
+      voltarParaAAba();
+
+      await waitFor(() => expect(result.current.situacao).toBe('aceito'));
+    });
+
+    it('se a releitura também falha, segue "indisponivel" e a próxima volta à aba tenta de novo', async () => {
+      mockJaAceitou
+        .mockRejectedValueOnce(new Error('sem rede'))
+        .mockRejectedValueOnce(new Error('sem rede de novo'))
+        .mockResolvedValueOnce(false);
+      const { result } = renderHook(() => useAceiteDosTermos());
+      await waitFor(() => expect(result.current.situacao).toBe('indisponivel'));
+
+      voltarParaAAba();
+      await waitFor(() => expect(mockJaAceitou).toHaveBeenCalledTimes(2));
+      await act(async () => {});
+      expect(result.current.situacao).toBe('indisponivel');
+
+      voltarParaAAba();
+      await waitFor(() => expect(result.current.situacao).toBe('pendente'));
+      expect(mockJaAceitou).toHaveBeenCalledTimes(3);
+    });
+
+    it('só relê quando a aba está visível: com ela escondida, não lê', async () => {
+      mockJaAceitou.mockRejectedValue(new Error('sem rede'));
+      const { result } = renderHook(() => useAceiteDosTermos());
+      await waitFor(() => expect(result.current.situacao).toBe('indisponivel'));
+      const visibilidade = vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('hidden');
+
+      voltarParaAAba();
+      await act(async () => {});
+
+      expect(mockJaAceitou).toHaveBeenCalledTimes(1);
+      visibilidade.mockRestore();
+    });
+  });
+
+  it('com o aceite lido ("aceito" ou "pendente"), voltar à aba não relê: a situação só muda quando o Gerente aceita', async () => {
+    mockJaAceitou.mockResolvedValue(false);
+    const { result } = renderHook(() => useAceiteDosTermos());
     await waitFor(() => expect(result.current.situacao).toBe('pendente'));
 
-    expect(mockJaAceitou).toHaveBeenCalledWith('2027-01-01');
-    mockAceitar.mockResolvedValue(undefined);
-    await act(async () => {
-      await result.current.aceitar();
+    act(() => {
+      document.dispatchEvent(new Event('visibilitychange'));
     });
-    expect(mockAceitar).toHaveBeenCalledWith('2027-01-01');
+    await act(async () => {});
+
+    expect(mockJaAceitou).toHaveBeenCalledTimes(1);
+    expect(result.current.situacao).toBe('pendente');
+  });
+
+  it('desmontar tira o ouvinte da aba', async () => {
+    mockJaAceitou.mockRejectedValue(new Error('sem rede'));
+    const { result, unmount } = renderHook(() => useAceiteDosTermos());
+    await waitFor(() => expect(result.current.situacao).toBe('indisponivel'));
+
+    unmount();
+    document.dispatchEvent(new Event('visibilitychange'));
+    await act(async () => {});
+
+    expect(mockJaAceitou).toHaveBeenCalledTimes(1);
   });
 
   it('aceitar grava o aceite da versão atual e a situação passa a "aceito"', async () => {

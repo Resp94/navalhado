@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { colunasDeTopo, projetarColunas } from '../../../test/fakePostgrestColunas';
 import { SupabaseTermosAdapter } from '../adapters/SupabaseTermosAdapter';
 import { MENSAGEM_ACEITAR_FALHOU } from '../errors';
@@ -103,9 +103,10 @@ describe('SupabaseTermosAdapter', () => {
       expect(rpcs).toEqual([{ nome: 'accept_terms', argumentos: { p_version: '2026-10-02' } }]);
     });
 
-    it('se o banco recusa, o Gerente lê a mensagem padrão, e não o texto do banco (que fica na causa, para o log)', async () => {
-      const erroDoBanco = new Error('permission denied for function accept_terms');
+    it('se o banco recusa, o Gerente lê a mensagem padrão, e não o texto do banco, que vai para o log com o código', async () => {
+      const erroDoBanco = Object.assign(new Error('permission denied for function accept_terms'), { code: '42501', hint: 'sem hint' });
       const { client } = clienteFalso({ erroNoRpc: erroDoBanco });
+      const noLog = vi.spyOn(console, 'error').mockImplementation(() => {});
 
       const falha = await new SupabaseTermosAdapter(client).aceitar('2026-10-02').catch((erro: Error) => erro);
 
@@ -113,6 +114,9 @@ describe('SupabaseTermosAdapter', () => {
       expect((falha as Error).message).toBe(MENSAGEM_ACEITAR_FALHOU);
       expect((falha as Error).message).not.toContain('permission denied');
       expect((falha as Error).cause).toBe(erroDoBanco);
+      // O objeto inteiro (código, hint), e não só a mensagem: é o que diz por que a gravação falhou.
+      expect(noLog).toHaveBeenCalledWith('Erro ao gravar o aceite dos termos:', erroDoBanco);
+      noLog.mockRestore();
     });
   });
 });

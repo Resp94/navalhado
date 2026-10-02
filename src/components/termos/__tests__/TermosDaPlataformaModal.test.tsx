@@ -1,10 +1,11 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import { POLITICA_DE_PRIVACIDADE, TERMOS_DE_USO, VERSAO_ATUAL_DOS_TERMOS, dataDaVersao } from '../../../modules/termos/textos';
+import { formatDisplayDate } from '../../../modules/relatorios/formatacao';
+import { POLITICA_DE_PRIVACIDADE, TERMOS_DE_USO, VERSAO_ATUAL_DOS_TERMOS } from '../../../modules/termos/textos';
 import { TermosDaPlataformaModal } from '../TermosDaPlataformaModal';
 
-// Spec 052, ticket 16: os Termos de Uso e a Política de Privacidade da plataforma, que o Gerente aceita. O Canal do Cliente tem o
-// próprio texto (LegalModal): o cliente da barbearia não contrata a assinatura.
+// Spec 052, ticket 16: os Termos de Uso e a Política de Privacidade da plataforma, que o Gerente aceita. O Canal do Cliente não tem
+// termo nem privacidade na tela (os links saíram na spec 026): o cliente da barbearia não contrata a assinatura.
 
 describe('TermosDaPlataformaModal', () => {
   it('fechado, não mostra nada', () => {
@@ -17,7 +18,7 @@ describe('TermosDaPlataformaModal', () => {
     render(<TermosDaPlataformaModal isOpen onClose={vi.fn()} documento="termos" />);
 
     expect(screen.getByRole('heading', { name: TERMOS_DE_USO.titulo })).toBeInTheDocument();
-    expect(screen.getByText(`Versão de ${dataDaVersao(VERSAO_ATUAL_DOS_TERMOS)}`)).toBeInTheDocument();
+    expect(screen.getByText(`Versão de ${formatDisplayDate(VERSAO_ATUAL_DOS_TERMOS)}`)).toBeInTheDocument();
     for (const secao of TERMOS_DE_USO.secoes) {
       expect(screen.getByRole('heading', { name: secao.titulo })).toBeInTheDocument();
     }
@@ -28,7 +29,7 @@ describe('TermosDaPlataformaModal', () => {
     render(<TermosDaPlataformaModal isOpen onClose={vi.fn()} documento="privacidade" />);
 
     expect(screen.getByRole('heading', { name: POLITICA_DE_PRIVACIDADE.titulo })).toBeInTheDocument();
-    expect(screen.getByText(`Versão de ${dataDaVersao(VERSAO_ATUAL_DOS_TERMOS)}`)).toBeInTheDocument();
+    expect(screen.getByText(`Versão de ${formatDisplayDate(VERSAO_ATUAL_DOS_TERMOS)}`)).toBeInTheDocument();
     for (const secao of POLITICA_DE_PRIVACIDADE.secoes) {
       expect(screen.getByRole('heading', { name: secao.titulo })).toBeInTheDocument();
     }

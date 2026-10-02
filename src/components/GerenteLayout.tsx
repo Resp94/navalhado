@@ -220,19 +220,14 @@ export const GerenteLayout: React.FC = () => {
     );
   }
 
-  // Sem o aceite da versão atual dos Termos de Uso e da Política de Privacidade: só a tela de aceite, antes do painel, do
-  // onboarding e até da tela de bloqueio (quem vai pagar a assinatura está contratando). Se a leitura do aceite falhou, o painel
-  // abre: o aceite é do front, e travar todo mundo por uma falha de rede seria pior.
-  if (situacaoDoAceite === 'pendente') {
-    return (
-      <TelaDeAceiteDosTermos
-        aceitando={aceitandoOsTermos}
-        erro={erroDoAceite}
-        onAceitar={aceitarOsTermos}
-        onLogout={handleLogout}
-      />
-    );
-  }
+  // O aceite da versão atual dos Termos de Uso e da Política de Privacidade (ticket 16) condiciona entrar e contratar, e não sair:
+  // exportar os dados e cancelar a assinatura nunca ficam atrás dele. Pendente, o pedido de aceite toma o lugar do "Pagar" na tela de
+  // bloqueio e, sem bloqueio, vem antes do painel e do onboarding. Se a leitura do aceite falhou, o painel abre: o aceite é do front,
+  // e travar todo mundo por uma falha de rede seria pior.
+  const aceiteDosTermos =
+    situacaoDoAceite === 'pendente'
+      ? { aceitando: aceitandoOsTermos, erro: erroDoAceite, onAceitar: aceitarOsTermos }
+      : undefined;
 
   // Bloqueado por assinatura: só a tela de bloqueio, inclusive no onboarding. O bloqueio
   // é do front; o Gerente continua lendo os próprios dados no banco, para poder exportá-los.
@@ -248,6 +243,18 @@ export const GerenteLayout: React.FC = () => {
         aguardandoConfirmacao={aguardandoConfirmacao}
         onAtualizar={recarregarEstadoDeAcesso}
         onCancelada={recarregarEstadoDeAcesso}
+        aceite={aceiteDosTermos}
+      />
+    );
+  }
+
+  if (aceiteDosTermos) {
+    return (
+      <TelaDeAceiteDosTermos
+        {...aceiteDosTermos}
+        onLogout={handleLogout}
+        tenantId={tenantInfo.tenantId}
+        timezone={tenantInfo.timezone}
       />
     );
   }

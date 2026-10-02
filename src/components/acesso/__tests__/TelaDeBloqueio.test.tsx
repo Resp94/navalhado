@@ -236,6 +236,89 @@ describe('TelaDeBloqueio', () => {
     });
   });
 
+  // Spec 052, ticket 16 (revisão): o aceite dos Termos de Uso condiciona contratar, e não sair. O Gerente que ainda não aceitou vê o
+  // pedido de aceite no lugar do "Pagar" (que contrata uma assinatura); exportar os dados, cancelar a assinatura, trocar o cartão e
+  // sair da conta ficam exatamente como estão.
+  describe('Gerente que ainda não aceitou os Termos de Uso', () => {
+    const aceite = () => ({ aceitando: false, erro: null as string | null, onAceitar: vi.fn() });
+
+    it('vê o pedido de aceite no lugar do "Pagar", que só aparece depois do aceite', () => {
+      const { rerender } = render(
+        <TelaDeBloqueio motivo="trial_expired" perfil="gerente" tenantName="Alpha" onLogout={vi.fn()} aceite={aceite()} />,
+      );
+
+      expect(screen.queryByRole('button', { name: 'Pagar' })).not.toBeInTheDocument();
+      expect(screen.getByText(/Para pagar, aceite antes os Termos de Uso e a Política de Privacidade/)).toBeInTheDocument();
+      expect(screen.getByRole('checkbox', { name: /Li e aceito/ })).not.toBeChecked();
+      expect(screen.getByRole('button', { name: 'Aceitar e continuar' })).toBeDisabled();
+
+      rerender(<TelaDeBloqueio motivo="trial_expired" perfil="gerente" tenantName="Alpha" onLogout={vi.fn()} />);
+
+      expect(screen.getByRole('button', { name: 'Pagar' })).toBeEnabled();
+      expect(screen.queryByRole('checkbox', { name: /Li e aceito/ })).not.toBeInTheDocument();
+    });
+
+    it('marcar o aceite libera "Aceitar e continuar", que chama onAceitar', async () => {
+      const pedido = aceite();
+      render(<TelaDeBloqueio motivo="trial_expired" perfil="gerente" tenantName="Alpha" onLogout={vi.fn()} aceite={pedido} />);
+
+      await userEvent.click(screen.getByRole('checkbox', { name: /Li e aceito/ }));
+      await userEvent.click(screen.getByRole('button', { name: 'Aceitar e continuar' }));
+
+      expect(pedido.onAceitar).toHaveBeenCalledTimes(1);
+    });
+
+    it('mostra o erro de gravar o aceite', () => {
+      render(
+        <TelaDeBloqueio
+          motivo="trial_expired"
+          perfil="gerente"
+          tenantName="Alpha"
+          onLogout={vi.fn()}
+          aceite={{ aceitando: false, erro: 'Não foi possível registrar o seu aceite. Tente de novo.', onAceitar: vi.fn() }}
+        />,
+      );
+
+      expect(screen.getByRole('alert')).toHaveTextContent('Não foi possível registrar o seu aceite. Tente de novo.');
+    });
+
+    it.each(['payment_failed', 'refunded'] as const)(
+      'com o bloqueio por %s, exportar os dados, cancelar a assinatura e sair da conta seguem na tela, sem passar pelo aceite',
+      async (motivo) => {
+        const onLogout = vi.fn();
+        render(
+          <TelaDeBloqueio
+            motivo={motivo}
+            perfil="gerente"
+            tenantName="Alpha"
+            tenantId="tenant-1"
+            timezone="America/Manaus"
+            onLogout={onLogout}
+            aceite={aceite()}
+          />,
+        );
+
+        expect(screen.getByTestId('exportar-dados')).toHaveTextContent('tenant-1 America/Manaus largura total');
+        expect(screen.getByTestId('cancelar-assinatura')).toBeInTheDocument();
+        await userEvent.click(screen.getByRole('button', { name: 'Sair da conta' }));
+        expect(onLogout).toHaveBeenCalledTimes(1);
+      },
+    );
+
+    it('com o pagamento recusado, trocar o cartão (que não contrata nada) segue na tela, e não há "Pagar" para trocar pelo aceite', () => {
+      render(<TelaDeBloqueio motivo="payment_failed" perfil="gerente" tenantName="Alpha" onLogout={vi.fn()} aceite={aceite()} />);
+
+      expect(screen.getByTestId('trocar-cartao')).toBeInTheDocument();
+      expect(screen.queryByRole('checkbox', { name: /Li e aceito/ })).not.toBeInTheDocument();
+    });
+
+    it('o Barbeiro nunca vê o pedido de aceite', () => {
+      render(<TelaDeBloqueio motivo="trial_expired" perfil="barbeiro" tenantName="Alpha" onLogout={vi.fn()} aceite={aceite()} />);
+
+      expect(screen.queryByRole('checkbox', { name: /Li e aceito/ })).not.toBeInTheDocument();
+    });
+  });
+
   describe('Barbeiro', () => {
     it('recebe só a explicação, sem botão de pagar', () => {
       render(<TelaDeBloqueio motivo="trial_expired" perfil="barbeiro" tenantName="Alpha" onLogout={vi.fn()} />);

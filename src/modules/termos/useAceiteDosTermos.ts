@@ -7,23 +7,28 @@ import type { SituacaoDoAceite } from './types';
 
 const OPCOES_DO_ACEITE = { rotulo: 'Erro ao registrar o aceite dos termos', mensagemPadrao: MENSAGEM_ACEITAR_FALHOU };
 
+const gravarAceite = () => termosRepository.aceitar(VERSAO_ATUAL_DOS_TERMOS);
+
 /**
  * Aceite dos Termos de Uso de quem está logado, para o porteiro do Gerente (spec 052, ticket 16). Lê, assim que monta, se a versão
  * atual dos termos já foi aceita: `pendente` põe a tela de aceite na frente do painel, e `aceitar` grava o aceite (versão e data,
  * pelo banco) e libera o painel sem recarregar a página.
  *
  * Se a leitura falha, a situação é `indisponivel` e o painel abre: o aceite é uma regra do front (o banco só o guarda), e travar
- * todo mundo por uma falha de rede, ou por uma migration que ainda não chegou a um ambiente, seria pior. O Gerente vê a tela de
- * aceite no próximo acesso. Se gravar o aceite falha, a situação segue `pendente` e `erro` traz a mensagem para a tela.
+ * todo mundo por uma falha de rede, ou por uma migration que ainda não chegou a um ambiente, seria pior. Enquanto está
+ * `indisponivel`, o hook lê de novo quando a aba volta a ficar visível (como o `useEstadoDeAcesso`), para quem deixou a aba aberta
+ * durante a falha não ficar sem a tela até recarregar; sem temporizador, para a tela não aparecer por cima do que o Gerente está
+ * fazendo. Se gravar o aceite falha, a situação segue `pendente` e `erro` traz a mensagem para a tela.
  */
-export function useAceiteDosTermos(versao: string = VERSAO_ATUAL_DOS_TERMOS) {
+export function useAceiteDosTermos() {
   const [situacao, setSituacao] = useState<SituacaoDoAceite>('carregando');
+  const [leitura, setLeitura] = useState(0);
 
   useEffect(() => {
     let cancelado = false;
 
     termosRepository
-      .jaAceitou(versao)
+      .jaAceitou(VERSAO_ATUAL_DOS_TERMOS)
       .then((aceitou) => {
         if (!cancelado) setSituacao(aceitou ? 'aceito' : 'pendente');
       })
@@ -35,9 +40,18 @@ export function useAceiteDosTermos(versao: string = VERSAO_ATUAL_DOS_TERMOS) {
     return () => {
       cancelado = true;
     };
-  }, [versao]);
+  }, [leitura]);
 
-  const gravarAceite = useCallback(() => termosRepository.aceitar(versao), [versao]);
+  useEffect(() => {
+    if (situacao !== 'indisponivel') return;
+
+    const aoVoltarParaAAba = () => {
+      if (document.visibilityState === 'visible') setLeitura((n) => n + 1);
+    };
+    document.addEventListener('visibilitychange', aoVoltarParaAAba);
+    return () => document.removeEventListener('visibilitychange', aoVoltarParaAAba);
+  }, [situacao]);
+
   const { executar, emAndamento, erro } = useAcaoDoGerente(gravarAceite, OPCOES_DO_ACEITE);
 
   const aceitar = useCallback(async () => {

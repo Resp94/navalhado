@@ -1,9 +1,18 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import { POLITICA_DE_PRIVACIDADE, TERMOS_DE_USO, VERSAO_ATUAL_DOS_TERMOS, dataDaVersao } from '../../../modules/termos/textos';
+import { formatDisplayDate } from '../../../modules/relatorios/formatacao';
+import { VERSAO_ATUAL_DOS_TERMOS } from '../../../modules/termos/textos';
 import { TelaDeAceiteDosTermos } from '../TelaDeAceiteDosTermos';
 
-// Spec 052, ticket 16: o Gerente que ainda não aceitou a versão atual dos termos vê esta tela antes do painel.
+// A exportação (leitura, CSV, download) tem teste próprio; aqui só interessa quando a tela a oferece e para qual barbearia.
+vi.mock('../../acesso/BotaoExportarDados', () => ({
+  BotaoExportarDados: ({ tenantId, timezone, fullWidth }: { tenantId: string; timezone?: string; fullWidth?: boolean }) => (
+    <div data-testid="exportar-dados">{`${tenantId} ${timezone ?? 'sem fuso'} ${fullWidth ? 'largura total' : 'largura própria'}`}</div>
+  ),
+}));
+
+// Spec 052, ticket 16: o Gerente que ainda não aceitou a versão atual dos termos vê esta tela antes do painel. O pedido de aceite
+// (caixa, erro e botão) tem teste próprio; aqui interessa o que a tela diz e o que ela oferece a quem não quer aceitar.
 
 const renderizar = (props: Partial<React.ComponentProps<typeof TelaDeAceiteDosTermos>> = {}) => {
   const onAceitar = vi.fn();
@@ -12,92 +21,52 @@ const renderizar = (props: Partial<React.ComponentProps<typeof TelaDeAceiteDosTe
   return { onAceitar, onLogout };
 };
 
-const caixaDeAceite = () => screen.getByRole('checkbox', { name: /Li e aceito/ });
-const botaoDeAceitar = () => screen.getByRole('button', { name: 'Aceitar e continuar' });
-
 describe('TelaDeAceiteDosTermos', () => {
   it('pede o aceite da versão atual e começa sem aceitar', () => {
     renderizar();
 
     expect(screen.getByRole('heading', { name: 'Termos de Uso e Política de Privacidade' })).toBeInTheDocument();
-    expect(screen.getByText(new RegExp(`versão de ${dataDaVersao(VERSAO_ATUAL_DOS_TERMOS)}`))).toBeInTheDocument();
-    expect(caixaDeAceite()).not.toBeChecked();
-    expect(botaoDeAceitar()).toBeDisabled();
+    expect(screen.getByText(new RegExp(`versão de ${formatDisplayDate(VERSAO_ATUAL_DOS_TERMOS)}`))).toBeInTheDocument();
+    expect(screen.getByRole('checkbox', { name: /Li e aceito/ })).not.toBeChecked();
+    expect(screen.getByRole('button', { name: 'Aceitar e continuar' })).toBeDisabled();
   });
 
-  it('marcar o aceite libera o botão, e clicar chama onAceitar uma vez', () => {
+  it('marcar o aceite e confirmar chama onAceitar', () => {
     const { onAceitar } = renderizar();
 
-    fireEvent.click(caixaDeAceite());
-    expect(botaoDeAceitar()).toBeEnabled();
-    fireEvent.click(botaoDeAceitar());
+    fireEvent.click(screen.getByRole('checkbox', { name: /Li e aceito/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Aceitar e continuar' }));
 
     expect(onAceitar).toHaveBeenCalledTimes(1);
   });
 
-  it('desmarcar de novo trava o botão', () => {
-    renderizar();
-
-    fireEvent.click(caixaDeAceite());
-    fireEvent.click(caixaDeAceite());
-
-    expect(botaoDeAceitar()).toBeDisabled();
-  });
-
-  it('sem marcar o aceite, o envio do formulário não chama onAceitar', () => {
-    const { onAceitar } = renderizar();
-
-    fireEvent.submit(botaoDeAceitar().closest('form') as HTMLFormElement);
-
-    expect(onAceitar).not.toHaveBeenCalled();
-  });
-
-  it('enquanto o aceite é gravado, o botão mostra o andamento, fica travado e o aceite não muda', () => {
-    renderizar({ aceitando: true });
+  it('repassa ao pedido de aceite o andamento e o erro', () => {
+    renderizar({ aceitando: true, erro: 'Não foi possível registrar o seu aceite. Tente de novo.' });
 
     expect(screen.getByRole('button', { name: 'Registrando…' })).toBeDisabled();
-    expect(caixaDeAceite()).toBeDisabled();
-  });
-
-  it('mostra o erro de gravar o aceite', () => {
-    renderizar({ erro: 'Não foi possível registrar o seu aceite. Tente de novo.' });
-
     expect(screen.getByRole('alert')).toHaveTextContent('Não foi possível registrar o seu aceite. Tente de novo.');
   });
 
-  it('sem erro, não mostra alerta', () => {
+  it('tem os links que abrem os dois textos', () => {
     renderizar();
 
-    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Termos de Uso' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Política de Privacidade' })).toBeInTheDocument();
   });
 
-  it('"Ler os Termos de Uso" abre o texto dos termos, e fechar volta para a tela', () => {
-    renderizar();
+  // Quem não aceita ainda leva os dados ("os dados nunca ficam presos ao Navalhado") e sai da conta.
+  it('com a barbearia identificada, quem não aceita ainda exporta os dados dela, no fuso dela', () => {
+    renderizar({ tenantId: 'tenant-1', timezone: 'America/Manaus' });
 
-    fireEvent.click(screen.getByRole('button', { name: 'Ler os Termos de Uso' }));
-    expect(screen.getByRole('heading', { name: TERMOS_DE_USO.titulo })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: TERMOS_DE_USO.secoes[0].titulo })).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole('button', { name: 'Fechar' }));
-    expect(screen.queryByRole('heading', { name: TERMOS_DE_USO.titulo })).not.toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Termos de Uso e Política de Privacidade' })).toBeInTheDocument();
+    expect(screen.getByTestId('exportar-dados')).toHaveTextContent('tenant-1 America/Manaus largura total');
+    expect(screen.getByText(/Mesmo sem aceitar agora, você leva os seus dados/)).toBeInTheDocument();
+    expect(screen.getByText(/baixe os clientes, os agendamentos e as comandas/)).toBeInTheDocument();
   });
 
-  it('"Ler a Política de Privacidade" abre o texto da política', () => {
+  it('sem a barbearia identificada, não oferece a exportação', () => {
     renderizar();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Ler a Política de Privacidade' }));
-
-    expect(screen.getByRole('heading', { name: POLITICA_DE_PRIVACIDADE.titulo })).toBeInTheDocument();
-  });
-
-  it('ler os textos não marca o aceite', () => {
-    renderizar();
-
-    fireEvent.click(screen.getByRole('button', { name: 'Ler os Termos de Uso' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Fechar' }));
-
-    expect(caixaDeAceite()).not.toBeChecked();
+    expect(screen.queryByTestId('exportar-dados')).not.toBeInTheDocument();
   });
 
   it('"Sair da conta" chama onLogout', () => {

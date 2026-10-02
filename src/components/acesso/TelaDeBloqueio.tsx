@@ -4,8 +4,11 @@ import { BotaoAssinar } from './BotaoAssinar';
 import { BotaoExportarDados } from './BotaoExportarDados';
 import { CancelarAssinatura } from './CancelarAssinatura';
 import { TrocarCartao } from './TrocarCartao';
+import { PedidoDeAceiteDosTermos } from '../termos/PedidoDeAceiteDosTermos';
 import { explicacaoDoBloqueio, tituloDoBloqueio } from '../../modules/assinatura/mensagensDeAcesso';
 import { DESCRICAO_DA_EXPORTACAO } from '../../modules/exportacao/mensagens';
+import { formatDisplayDate } from '../../modules/relatorios/formatacao';
+import { VERSAO_ATUAL_DOS_TERMOS } from '../../modules/termos/textos';
 import type { AssinaturaCancelavel, MotivoDeAcesso, PerfilNoBloqueio } from '../../modules/assinatura/types';
 
 interface TelaDeBloqueioProps {
@@ -24,6 +27,12 @@ interface TelaDeBloqueioProps {
   onCancelada?: () => void;
   /** Como abrir o link do Mercado Pago. Por padrão, navega na mesma aba. */
   abrirLink?: (url: string) => void;
+  /**
+   * O Gerente ainda não aceitou a versão atual dos Termos de Uso (spec 052, ticket 16): no lugar do "Pagar", que contrata uma
+   * assinatura, a tela pede o aceite. Exportar os dados, cancelar a assinatura, trocar o cartão e sair da conta continuam como
+   * sempre: o aceite condiciona contratar, e não sair. Sem esta prop (aceite em dia, ou o Barbeiro), o "Pagar" aparece.
+   */
+  aceite?: { aceitando: boolean; erro: string | null; onAceitar: () => void };
 }
 
 // Bloqueios em que a assinatura costuma seguir viva no Mercado Pago, e cobraria no mês seguinte: pagamento recusado (em
@@ -46,7 +55,8 @@ const ASSINATURA_BLOQUEADA: AssinaturaCancelavel = {
  * Mercado Pago). Quando a assinatura segue viva no Mercado Pago (pagamento recusado, estorno,
  * contestação, bloqueio do Proprietário), o Gerente que não quer voltar pode cancelá-la, para não
  * ser cobrado no mês seguinte; o acesso segue bloqueado. Em qualquer bloqueio o Gerente também baixa os dados da
- * barbearia ("Exportar dados": os dados nunca ficam presos ao Navalhado). O Barbeiro só recebe a explicação.
+ * barbearia ("Exportar dados": os dados nunca ficam presos ao Navalhado). O Barbeiro só recebe a explicação. Se o Gerente ainda
+ * não aceitou os Termos de Uso, o aceite toma o lugar do "Pagar" e o resto continua igual.
  */
 export const TelaDeBloqueio: React.FC<TelaDeBloqueioProps> = ({
   motivo,
@@ -59,6 +69,7 @@ export const TelaDeBloqueio: React.FC<TelaDeBloqueioProps> = ({
   onAtualizar,
   onCancelada,
   abrirLink,
+  aceite,
 }) => (
   <>
     <div className="noise-overlay" />
@@ -81,7 +92,17 @@ export const TelaDeBloqueio: React.FC<TelaDeBloqueioProps> = ({
           </div>
         )}
 
-        {perfil === 'gerente' && motivo !== 'payment_failed' && <BotaoAssinar rotulo="Pagar" fullWidth abrirLink={abrirLink} />}
+        {perfil === 'gerente' && motivo !== 'payment_failed' && aceite && (
+          <div className="flex flex-col gap-2">
+            <p className="m-0 text-sm text-text-secondary">
+              Para pagar, aceite antes os Termos de Uso e a Política de Privacidade (versão de {formatDisplayDate(VERSAO_ATUAL_DOS_TERMOS)}).
+            </p>
+            <PedidoDeAceiteDosTermos aceitando={aceite.aceitando} erro={aceite.erro} onAceitar={aceite.onAceitar} />
+          </div>
+        )}
+        {perfil === 'gerente' && motivo !== 'payment_failed' && !aceite && (
+          <BotaoAssinar rotulo="Pagar" fullWidth abrirLink={abrirLink} />
+        )}
 
         {perfil === 'gerente' && motivo === 'payment_failed' && (
           <div className="text-left">

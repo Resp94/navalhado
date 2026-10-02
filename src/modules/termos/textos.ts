@@ -4,17 +4,12 @@ import type { DocumentoLegal, TextoLegal } from './types';
  * A versão atual dos textos: a data em que foram publicados (AAAA-MM-DD). É ela que o Gerente aceita e que o banco guarda
  * (`terms_acceptances.version`); mudar o texto é mudar esta data, e todo Gerente passa a ver a tela de aceite de novo.
  *
+ * A versão é uma data que existe e que não é posterior a hoje (o banco recusa o aceite de uma versão que ainda não chegou).
+ *
  * RASCUNHO TÉCNICO (spec 052, ticket 16): escrito a partir do que o sistema faz, e não revisado por advogado. Precisa de revisão
- * jurídica antes do lançamento em prod (foro, limitação de responsabilidade, reajuste de preço, controlador e operador na LGPD e o
- * canal de contato do suporte, que o texto cita sem endereço).
+ * jurídica antes do lançamento em prod; o que o advogado precisa decidir está no doc do ticket 16 ("O que o advogado precisa rever").
  */
 export const VERSAO_ATUAL_DOS_TERMOS = '2026-10-02';
-
-/** A versão (AAAA-MM-DD) como DD/MM/AAAA, sem passar por fuso horário. */
-export function dataDaVersao(versao: string): string {
-  const [ano, mes, dia] = versao.split('-');
-  return `${dia}/${mes}/${ano}`;
-}
 
 // O preço de cada plano mora no banco (tabela `plans`) e aparece no cadastro e na tela Assinatura: o texto remete a eles e não
 // escreve valores, para um reajuste do catálogo não deixar o contrato dizendo um preço que não vale mais.
@@ -24,14 +19,15 @@ export const TERMOS_DE_USO: TextoLegal = {
     {
       titulo: '1. Aceite e quem pode aceitar',
       paragrafos: [
-        'Estes Termos de Uso valem para o uso do Navalhado pela barbearia que contrata a plataforma e por quem a administra e a usa. Ao criar a conta, ou ao entrar depois de uma atualização destes termos, você declara que leu e aceita os Termos de Uso e a Política de Privacidade e que tem poderes para contratar em nome da barbearia.',
-        'O Navalhado registra o seu aceite com a versão dos textos e a data.',
+        'Estes Termos de Uso valem para o uso do Navalhado pela barbearia que contrata a plataforma e por quem a administra e a usa. Ao criar a conta, ou ao entrar depois de uma atualização destes termos, o Gerente declara que leu e aceita os Termos de Uso e a Política de Privacidade e que tem poderes para contratar em nome da barbearia. Os profissionais da barbearia usam o Navalhado nos termos contratados por ela.',
+        'O Navalhado registra o aceite do Gerente com a versão dos textos e a data.',
       ],
     },
     {
       titulo: '2. Uso da conta e responsabilidades',
       paragrafos: [
         'Gestores e profissionais são responsáveis por manter em sigilo as suas credenciais de acesso.',
+        'Quem usa a conta responde por cumprir as leis e regulamentações aplicáveis ao uso do Navalhado e aos serviços da barbearia.',
         'O uso da conta para disparos de mensagens não autorizados ou para práticas ilegais permite ao Navalhado bloquear o acesso da barbearia.',
       ],
     },
@@ -54,7 +50,7 @@ export const TERMOS_DE_USO: TextoLegal = {
     {
       titulo: '5. Cancelamento',
       paragrafos: [
-        'Você cancela a assinatura quando quiser, pela tela Assinatura.',
+        'Você cancela a assinatura quando quiser, pela tela Assinatura do painel ou direto no Mercado Pago.',
         'A cobrança recorrente para na hora e nada é reembolsado. O acesso continua até o fim do período já pago e, depois dele, o painel é bloqueado.',
         'No período de teste, cancelar só impede a primeira cobrança: o teste segue até o fim.',
       ],
@@ -125,6 +121,7 @@ export const POLITICA_DE_PRIVACIDADE: TextoLegal = {
       titulo: '2. Para que usamos os dados',
       paragrafos: [
         'Para operar a agenda e o atendimento da barbearia, enviar lembretes e confirmações pelo WhatsApp, cobrar a assinatura e avisar o Gerente por e-mail sobre ela (fim do teste, pagamento recusado e bloqueio).',
+        'Tratamos só os dados necessários para essas finalidades.',
       ],
     },
     {
