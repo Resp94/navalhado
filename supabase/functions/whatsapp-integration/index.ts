@@ -906,12 +906,23 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
           };
         }
 
+        // Só 'connect' e 'resume', a vontade do usuário, abrem um pareamento. Logo depois de um 'disconnect' o
+        // provedor ainda pode responder 'connecting' por um instante: uma consulta de status (a tela faz uma assim
+        // que a instância fica desconectada) não pode reabrir um pareamento que o usuário acabou de cancelar.
+        if (normalizedStatus === "connecting" && dbInstance.status === "disconnected" && action === "status") {
+          console.log("[WhatsApp-Integration] Ignorando 'connecting' do provedor: a instância está desconectada e o pareamento só começa pelo botão");
+          return { status: "disconnected" as const, qrcode: null, pairingCode: undefined };
+        }
+
         if (normalizedStatus === "connecting" && dbInstance.status === "connecting") {
           if (providerStatus.qrCode && providerStatus.qrCode !== dbInstance.qr_code) {
+            // O QR só vale enquanto a linha ainda está em pareamento: uma consulta que começou antes de um
+            // 'disconnect' não devolve o QR a uma instância já desconectada.
             const { error: qrError } = await supabase
               .from(manageTable)
               .update({ qr_code: providerStatus.qrCode })
-              .eq("id", instance_id);
+              .eq("id", instance_id)
+              .eq("status", "connecting");
             if (qrError) throw qrError;
           }
           return {
@@ -1311,6 +1322,8 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
           });
         }
 
+        // O QR é de um pareamento em andamento: um QR que chega depois de o pareamento ser cancelado
+        // (linha desconectada) não a devolve a 'connecting'.
         const { error: updateErr } = await supabase
           .from(instancesTable)
           .update({
@@ -1318,7 +1331,8 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
             qr_code: qrCode,
             updated_at: new Date().toISOString(),
           })
-          .eq("id", authenticatedInstance.id);
+          .eq("id", authenticatedInstance.id)
+          .eq("status", "connecting");
 
         if (updateErr) {
           console.error(`[WhatsApp-Integration] Erro ao persistir QR Code via webhook: ${updateErr.message}`);
@@ -1692,6 +1706,15 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => async (
           localStatus = "hibernated";
         } else {
           localStatus = "disconnected";
+        }
+
+        // Só 'connect' e 'resume' abrem um pareamento: um 'connecting' do provedor com a instância
+        // desconectada (o provedor ainda se mexendo depois de um 'disconnect') não a reabre.
+        if (localStatus === "connecting" && authenticatedInstance.status === "disconnected") {
+          console.log("[WhatsApp-Integration] Ignorando 'connecting' do provedor: a instância está desconectada e o pareamento só começa pelo botão");
+          return new Response(JSON.stringify({ success: true, status: "disconnected" }), {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
         }
 
         const shouldPreservePairing =

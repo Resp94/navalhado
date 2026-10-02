@@ -118,6 +118,13 @@ const UAZAPI_TRANSIENT_PAIRING_WEBHOOK_FIXTURE = {
   status: { connected: false, loggedIn: false },
 };
 
+const UAZAPI_CONNECTING_WEBHOOK_FIXTURE = {
+  EventType: "connection",
+  token: "mock-instance-key",
+  instance: { name: "nav_test", status: "connecting" },
+  status: { connected: false, loggedIn: false },
+};
+
 Deno.test("singleRelation normalizes embedded Supabase relations", () => {
   const relation = { id: "relation-1" };
 
@@ -503,10 +510,10 @@ Deno.test("POST /manage-instance - connect delegates through the provider gatewa
 });
 
 // Spec 053, ticket 03: quem grava o inicio do pareamento e a Edge Function, nao o navegador (que perde o
-// UPDATE de status e qr_code no ticket 04). O helper registra, na ordem, os PATCH em whatsapp_instances e
-// as chamadas ao provedor, e devolve a resposta da funcao.
-const exercisePairingStart = async (options: {
-  action: "connect" | "resume";
+// UPDATE de status e qr_code no ticket 04). O helper registra, na ordem, os PATCH em whatsapp_instances (corpo
+// e URL, com os filtros) e as chamadas ao provedor, e devolve a resposta da funcao. Serve a connect, resume e status.
+const exerciseManageInstance = async (options: {
+  action: "connect" | "resume" | "status";
   row: Record<string, unknown>;
   providerStatus: { status: "connected" | "connecting" | "disconnected" | "hibernated"; qrCode?: string };
   patchResponseStatus?: number;
@@ -514,9 +521,14 @@ const exercisePairingStart = async (options: {
   const originalFetch = globalThis.fetch;
   const events: string[] = [];
   const patches: Array<Record<string, unknown>> = [];
+  const patchUrls: string[] = [];
   const provider = createProviderStub({
     connectInstance: () => {
       events.push("provider:connect");
+      return Promise.resolve(options.providerStatus);
+    },
+    getInstanceStatus: () => {
+      events.push("provider:status");
       return Promise.resolve(options.providerStatus);
     },
   });
@@ -529,6 +541,7 @@ const exercisePairingStart = async (options: {
     if ((init?.method || "GET") === "PATCH") {
       events.push("patch");
       patches.push(JSON.parse(String(init?.body)));
+      patchUrls.push(url);
       return new Response(JSON.stringify(options.patchResponseStatus ? { message: "boom" } : []), {
         status: options.patchResponseStatus ?? 200,
         headers: { "Content-Type": "application/json" },
@@ -549,14 +562,14 @@ const exercisePairingStart = async (options: {
         body: JSON.stringify({ action: options.action, instance_id: "inst-123", instance_name: "nav_test" }),
       },
     ));
-    return { response, body: await response.json(), events, patches };
+    return { response, body: await response.json(), events, patches, patchUrls };
   } finally {
     globalThis.fetch = originalFetch;
   }
 };
 
 Deno.test("POST /manage-instance - connect records the pairing start before calling the provider", async () => {
-  const { response, body, events, patches } = await exercisePairingStart({
+  const { response, body, events, patches } = await exerciseManageInstance({
     action: "connect",
     row: { status: "disconnected", qr_code: "old-qr", updated_at: new Date(Date.now() - 3_600_000).toISOString() },
     providerStatus: { status: "connecting", qrCode: "new-qr" },
@@ -573,7 +586,7 @@ Deno.test("POST /manage-instance - connect records the pairing start before call
 });
 
 Deno.test("POST /manage-instance - connect keeps the pairing when the provider transiently reports disconnected right after the start", async () => {
-  const { response, body, patches } = await exercisePairingStart({
+  const { response, body, patches } = await exerciseManageInstance({
     action: "connect",
     row: { status: "disconnected", qr_code: null, updated_at: new Date(Date.now() - 3_600_000).toISOString() },
     providerStatus: { status: "disconnected" },
@@ -587,7 +600,7 @@ Deno.test("POST /manage-instance - connect keeps the pairing when the provider t
 });
 
 Deno.test("POST /manage-instance - connect does not call the provider when recording the pairing start fails", async () => {
-  const { response, events } = await exercisePairingStart({
+  const { response, events } = await exerciseManageInstance({
     action: "connect",
     row: { status: "disconnected", qr_code: null, updated_at: new Date(Date.now() - 3_600_000).toISOString() },
     providerStatus: { status: "connecting", qrCode: "new-qr" },
@@ -599,7 +612,7 @@ Deno.test("POST /manage-instance - connect does not call the provider when recor
 });
 
 Deno.test("POST /manage-instance - resume does not record a pairing start", async () => {
-  const { response, events, patches } = await exercisePairingStart({
+  const { response, events, patches } = await exerciseManageInstance({
     action: "resume",
     row: { status: "hibernated", qr_code: null, updated_at: new Date(Date.now() - 3_600_000).toISOString() },
     providerStatus: { status: "connected" },
@@ -608,6 +621,63 @@ Deno.test("POST /manage-instance - resume does not record a pairing start", asyn
   assertEquals(response.status, 202);
   assertEquals(events[0], "provider:connect");
   assertEquals(patches.some((patch) => patch.status === "connecting"), false);
+});
+
+// Cancelar o pareamento tem de valer: logo depois do 'disconnect' o provedor ainda pode responder 'connecting'
+// (ou mandar QR) por um instante, e so 'connect' e 'resume', a vontade do usuario, abrem um pareamento.
+Deno.test("POST /manage-instance - status does not reopen a canceled pairing when the provider still reports connecting", async () => {
+  const { response, body, patches } = await exerciseManageInstance({
+    action: "status",
+    row: { status: "disconnected", qr_code: null, updated_at: new Date(Date.now() - 1_000).toISOString() },
+    providerStatus: { status: "connecting", qrCode: "late-qr" },
+  });
+
+  assertEquals(response.status, 200);
+  assertEquals(body.status, "disconnected");
+  assertEquals(body.qrcode ?? null, null);
+  assertEquals(patches.length, 0);
+});
+
+Deno.test("POST /manage-instance - status still writes the QR of a pairing in progress, only while the row is connecting", async () => {
+  const { response, body, patches, patchUrls } = await exerciseManageInstance({
+    action: "status",
+    row: { status: "connecting", qr_code: "old-qr", updated_at: new Date().toISOString() },
+    providerStatus: { status: "connecting", qrCode: "new-qr" },
+  });
+
+  assertEquals(response.status, 200);
+  assertEquals(body.status, "connecting");
+  assertEquals(body.qrcode, "new-qr");
+  assertEquals(patches, [{ qr_code: "new-qr" }]);
+  // Uma consulta que comecou antes de um 'disconnect' nao devolve o QR a uma instancia ja desconectada.
+  assertEquals(patchUrls[0].includes("status=eq.connecting"), true);
+});
+
+Deno.test("POST /manage-instance - resume still reopens a hibernated instance when the provider reports connecting", async () => {
+  const { response, body, patches } = await exerciseManageInstance({
+    action: "resume",
+    row: { status: "hibernated", qr_code: null, updated_at: new Date(Date.now() - 3_600_000).toISOString() },
+    providerStatus: { status: "connecting", qrCode: "resume-qr" },
+  });
+
+  assertEquals(response.status, 202);
+  assertEquals(body.status, "connecting");
+  assertEquals(patches.length, 1);
+  assertEquals(patches[0].status, "connecting");
+  assertEquals(patches[0].qr_code, "resume-qr");
+});
+
+Deno.test("POST /manage-instance - resume is the user's intent: it reopens even a disconnected instance when the provider reports connecting", async () => {
+  const { response, body, patches } = await exerciseManageInstance({
+    action: "resume",
+    row: { status: "disconnected", qr_code: null, updated_at: new Date(Date.now() - 1_000).toISOString() },
+    providerStatus: { status: "connecting", qrCode: "resume-qr" },
+  });
+
+  assertEquals(response.status, 202);
+  assertEquals(body.status, "connecting");
+  assertEquals(patches.length, 1);
+  assertEquals(patches[0].status, "connecting");
 });
 
 Deno.test("POST /manage-instance - preserves recent pairing when provider transiently reports disconnected", async () => {
@@ -1177,6 +1247,95 @@ Deno.test("POST /webhook - should persist Uazapi QRCode payload", async () => {
     assertEquals(await res.json(), { success: true });
     assertEquals(savedPayload?.status, "connecting");
     assertEquals(savedPayload?.qr_code, "data:image/png;base64,webhook-qrcode");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+// Cancelar o pareamento tem de valer tambem para o webhook: so connect e resume abrem um pareamento.
+Deno.test("POST /webhook - connecting from the provider does not reopen a disconnected instance", async () => {
+  const originalFetch = globalThis.fetch;
+  let savedPayload: Record<string, unknown> | undefined;
+
+  globalThis.fetch = async (input, init) => {
+    const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+    if (url.includes("rest/v1/whatsapp_instances")) {
+      if ((init?.method || "GET") === "PATCH") {
+        savedPayload = JSON.parse(String(init?.body));
+        return new Response(JSON.stringify([]), { status: 200, headers: { "Content-Type": "application/json" } });
+      }
+      return new Response(JSON.stringify({
+        id: "inst-123",
+        tenant_id: "tenant-456",
+        instance_name: "nav_test",
+        instance_token: "mock-instance-key",
+        status: "disconnected",
+        qr_code: null,
+        updated_at: new Date(Date.now() - 1_000).toISOString(),
+      }), { status: 200, headers: { "Content-Type": "application/json" } });
+    }
+    return new Response(JSON.stringify({ error: "unexpected request" }), { status: 404 });
+  };
+
+  try {
+    const response = await handler(new Request(
+      "https://mock-supabase.co/functions/v1/whatsapp-integration/webhook",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(UAZAPI_CONNECTING_WEBHOOK_FIXTURE),
+      },
+    ));
+
+    assertEquals(response.status, 200);
+    assertEquals((await response.json()).status, "disconnected");
+    assertEquals(savedPayload, undefined);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+Deno.test("POST /webhook - QRCode is only written while the instance is still connecting", async () => {
+  const originalFetch = globalThis.fetch;
+  const patchUrls: string[] = [];
+
+  globalThis.fetch = async (input, init) => {
+    const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+    if (url.includes("rest/v1/whatsapp_instances")) {
+      if ((init?.method || "GET") === "PATCH") {
+        patchUrls.push(url);
+        return new Response(JSON.stringify([]), { status: 200, headers: { "Content-Type": "application/json" } });
+      }
+      return new Response(JSON.stringify({
+        id: "inst-123",
+        tenant_id: "tenant-456",
+        instance_name: "nav_test",
+        instance_token: "mock-instance-key",
+        status: "connecting",
+        updated_at: new Date().toISOString(),
+      }), { status: 200, headers: { "Content-Type": "application/json" } });
+    }
+    return new Response(JSON.stringify({ error: "unexpected request" }), { status: 404 });
+  };
+
+  try {
+    const response = await handler(new Request(
+      "https://mock-supabase.co/functions/v1/whatsapp-integration/webhook",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          event: "QRCode",
+          data: { qrcode: "data:image/png;base64,webhook-qrcode" },
+          instanceToken: "mock-instance-key",
+        }),
+      },
+    ));
+
+    assertEquals(response.status, 200);
+    // Um QR que chega depois de o pareamento ser cancelado nao devolve a linha a 'connecting'.
+    assertEquals(patchUrls.length, 1);
+    assertEquals(patchUrls[0].includes("status=eq.connecting"), true);
   } finally {
     globalThis.fetch = originalFetch;
   }
