@@ -1,6 +1,6 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { GerenteLayout } from '../GerenteLayout';
 import { VERSAO_ATUAL_DOS_TERMOS } from '../../modules/termos/textos';
 
@@ -540,6 +540,11 @@ describe('GerenteLayout Gatekeeper', () => {
     describe('aceite dos Termos de Uso', () => {
       const TITULO_DO_ACEITE = 'Termos de Uso e Política de Privacidade';
 
+      // Os `console.error` espiados voltam ao normal mesmo quando uma asserção falha no meio do teste.
+      afterEach(() => {
+        vi.restoreAllMocks();
+      });
+
       const aceitarNaTela = async () => {
         await userEvent.click(await screen.findByRole('checkbox', { name: /Li e aceito/ }));
         await userEvent.click(screen.getByRole('button', { name: 'Aceitar e continuar' }));
@@ -585,14 +590,13 @@ describe('GerenteLayout Gatekeeper', () => {
         estadoDoBanco('allowed', 'active');
         mockJaAceitouTermos.mockResolvedValue(false);
         mockAceitarTermos.mockRejectedValue(new Error('Não foi possível registrar o seu aceite. Tente de novo.'));
-        const erro = vi.spyOn(console, 'error').mockImplementation(() => {});
+        vi.spyOn(console, 'error').mockImplementation(() => {});
         render(<GerenteLayout />);
 
         await aceitarNaTela();
 
         expect(await screen.findByRole('alert')).toHaveTextContent('Não foi possível registrar o seu aceite. Tente de novo.');
         expect(screen.queryByTestId('outlet')).not.toBeInTheDocument();
-        erro.mockRestore();
       });
 
       // O aceite condiciona entrar e contratar, e não sair: com a barbearia bloqueada a tela de bloqueio continua a tela, com o pedido de
@@ -683,13 +687,12 @@ describe('GerenteLayout Gatekeeper', () => {
         painelDaBarbearia('/agenda');
         estadoDoBanco('allowed', 'active');
         mockJaAceitouTermos.mockRejectedValue(new Error('sem rede'));
-        const erro = vi.spyOn(console, 'error').mockImplementation(() => {});
+        vi.spyOn(console, 'error').mockImplementation(() => {});
 
         render(<GerenteLayout />);
 
         expect(await screen.findByTestId('outlet')).toBeInTheDocument();
         expect(screen.queryByRole('heading', { name: TITULO_DO_ACEITE })).not.toBeInTheDocument();
-        erro.mockRestore();
       });
 
       it('lê o aceite em paralelo com os dados da barbearia, sem esperar por eles', async () => {

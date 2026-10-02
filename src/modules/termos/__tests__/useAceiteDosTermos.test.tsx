@@ -167,6 +167,21 @@ describe('useAceiteDosTermos', () => {
     expect(result.current.erro).toBeNull();
   });
 
+  // `executar` devolve nulo quando a ação falha: o sucesso do aceite não pode depender de o repositório devolver (ou não) um valor.
+  it('aceitar vale como gravado mesmo que o repositório devolva um valor nulo', async () => {
+    mockJaAceitou.mockResolvedValue(false);
+    mockAceitar.mockResolvedValue(null);
+    const { result } = renderHook(() => useAceiteDosTermos());
+    await waitFor(() => expect(result.current.situacao).toBe('pendente'));
+
+    await act(async () => {
+      await result.current.aceitar();
+    });
+
+    expect(result.current.situacao).toBe('aceito');
+    expect(result.current.erro).toBeNull();
+  });
+
   it('liga "aceitando" enquanto o aceite é gravado e o desliga no fim', async () => {
     mockJaAceitou.mockResolvedValue(false);
     let concluir: () => void = () => {};

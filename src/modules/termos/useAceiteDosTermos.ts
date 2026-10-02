@@ -7,7 +7,12 @@ import type { SituacaoDoAceite } from './types';
 
 const OPCOES_DO_ACEITE = { rotulo: 'Erro ao registrar o aceite dos termos', mensagemPadrao: MENSAGEM_ACEITAR_FALHOU };
 
-const gravarAceite = () => termosRepository.aceitar(VERSAO_ATUAL_DOS_TERMOS);
+// Devolve `true` quando grava: `executar` devolve nulo quando a ação falha, e o sucesso não pode depender de o repositório devolver
+// (ou não) algum valor.
+const gravarAceite = async () => {
+  await termosRepository.aceitar(VERSAO_ATUAL_DOS_TERMOS);
+  return true;
+};
 
 /**
  * Aceite dos Termos de Uso de quem está logado, para o porteiro do Gerente (spec 052, ticket 16). Lê, assim que monta, se a versão
@@ -55,9 +60,8 @@ export function useAceiteDosTermos() {
   const { executar, emAndamento, erro } = useAcaoDoGerente(gravarAceite, OPCOES_DO_ACEITE);
 
   const aceitar = useCallback(async () => {
-    // A ação devolve nulo quando falha (o motivo fica em `erro`) e `undefined` quando o aceite foi gravado.
-    const gravou = (await executar()) !== null;
-    if (gravou) setSituacao('aceito');
+    // A ação devolve nulo quando falha (o motivo fica em `erro`) e `true` quando o aceite foi gravado.
+    if ((await executar()) === true) setSituacao('aceito');
   }, [executar]);
 
   return { situacao, aceitar, aceitando: emAndamento, erro };

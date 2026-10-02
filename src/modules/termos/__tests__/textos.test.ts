@@ -34,7 +34,7 @@ describe('Termos de Uso', () => {
     { nome: 'teste de 15 dias', titulo: /teste de 15 dias/i, diz: [/15 dias/, /sem cartão/, /bloqueado/] },
     { nome: 'cancelamento com acesso até o fim do período pago', titulo: /cancelamento/i, diz: [/até o fim do período já pago/, /nada é reembolsado/, /direto no Mercado Pago/] },
     { nome: 'subida de plano com cobrança proporcional', titulo: /subida de plano/i, diz: [/diferença/, /proporcional/, /dias que faltam/] },
-    { nome: 'descida de plano sem reembolso', titulo: /descida de plano/i, diz: [/não cobra nem reembolsa/, /próxima cobrança/] },
+    { nome: 'descida de plano sem reembolso', titulo: /descida de plano/i, diz: [/não cobra nem reembolsa/, /próxima cobrança/, /o profissional inativo também ocupa vaga, e só excluir a libera/] },
     { nome: 'bloqueio no quinto dia de pagamento recusado, com os avisos prévios', titulo: /pagamento recusado.*quinto dia/i, diz: [/quinto dia/, /e-mail/, /terceiro e no quarto dia/, /bloqueado/] },
     { nome: 'guarda dos dados sem prazo, com exportação', titulo: /guarda dos dados e exportação/i, diz: [/sem prazo/, /Exportar dados/, /CSV/] },
     { nome: 'exclusão da Instância WhatsApp no sétimo dia de bloqueio', titulo: /exclusão do WhatsApp.*sétimo dia/i, diz: [/7 dias/, /exclui a conexão do WhatsApp/] },
@@ -45,12 +45,27 @@ describe('Termos de Uso', () => {
     for (const trecho of diz) expect(paragrafos).toMatch(trecho);
   });
 
-  it('o bloqueio por pagamento recusado diz o que muda para os clientes da barbearia e para o WhatsApp, e que estorno bloqueia na hora', () => {
+  it('o bloqueio por pagamento recusado diz o que muda para os clientes da barbearia e para o WhatsApp', () => {
     const paragrafos = paragrafosDaSecao(TERMOS_DE_USO, /pagamento recusado.*quinto dia/i);
     expect(paragrafos).toMatch(/não conseguem marcar nem remarcar/);
     expect(paragrafos).toMatch(/cancelam os que já têm/);
     expect(paragrafos).toMatch(/nenhuma mensagem é enviada pelo WhatsApp/);
-    expect(paragrafos).toMatch(/estorno ou a contestação/);
+  });
+
+  // O sistema só bloqueia na hora o estorno ou a contestação da mensalidade; o da diferença de uma subida de plano e o de um pagamento
+  // antigo, quando o período em curso foi pago por outro, só entram no histórico (glossário, Pagamento Recusado).
+  it('o estorno e a contestação bloqueiam na hora, com as exceções que o sistema tem', () => {
+    const paragrafos = paragrafosDaSecao(TERMOS_DE_USO, /pagamento recusado.*quinto dia/i);
+    expect(paragrafos).toMatch(/estorno ou a contestação da mensalidade bloqueiam o acesso na hora/);
+    expect(paragrafos).toMatch(/diferença de uma subida de plano/);
+    expect(paragrafos).toMatch(/pagamento antigo, quando o período em curso foi pago por outro, só entram no histórico/);
+  });
+
+  // A exportação entrega três arquivos (clientes, agendamentos e comandas): o texto não promete "os dados" sem dizer o que fica de fora.
+  it('a exportação diz o que baixa (clientes, agendamentos e comandas) e que o restante fica guardado, fora dos arquivos', () => {
+    const paragrafos = paragrafosDaSecao(TERMOS_DE_USO, /guarda dos dados e exportação/i);
+    expect(paragrafos).toMatch(/baixa os clientes, os agendamentos e as comandas da barbearia/);
+    expect(paragrafos).toMatch(/modelos de mensagem do WhatsApp, fica guardado, mas não vai nesses arquivos/);
   });
 
   it('a exclusão do WhatsApp diz o que fica (os dados e o histórico) e que quem paga antes não perde nada', () => {
@@ -88,6 +103,7 @@ describe('Política de Privacidade', () => {
     const paragrafos = paragrafosDaSecao(POLITICA_DE_PRIVACIDADE, /depois do cancelamento/i);
     expect(paragrafos).toMatch(/sem prazo/);
     expect(paragrafos).toMatch(/Exportar dados/);
+    expect(paragrafos).toMatch(/baixa os clientes, os agendamentos e as comandas/);
     expect(paragrafos).toMatch(/a pedido, pelo suporte/);
   });
 

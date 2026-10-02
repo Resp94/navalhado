@@ -66,14 +66,14 @@ export const TERMOS_DE_USO: TextoLegal = {
       titulo: '7. Descida de plano',
       paragrafos: [
         'Descer para um plano mais barato não cobra nem reembolsa nada: o plano menor passa a valer na próxima cobrança, e você pode desfazer a descida antes disso.',
-        'Só é possível descer se os profissionais ativos couberem no limite do plano menor.',
+        'Só é possível descer se os profissionais cadastrados couberem no limite do plano menor: o profissional inativo também ocupa vaga, e só excluir a libera.',
       ],
     },
     {
       titulo: '8. Pagamento recusado e bloqueio do acesso no quinto dia',
       paragrafos: [
         'Se uma mensalidade for recusada, o painel continua liberado, com um aviso na tela, até o quinto dia depois da primeira recusa. Nesse prazo o Navalhado avisa por e-mail no dia da recusa, no terceiro e no quarto dia, e você pode atualizar o cartão na tela Assinatura.',
-        'No quinto dia sem pagamento aprovado o acesso é bloqueado, e o Navalhado avisa por e-mail. O estorno ou a contestação de um pagamento bloqueiam o acesso na hora.',
+        'No quinto dia sem pagamento aprovado o acesso é bloqueado, e o Navalhado avisa por e-mail. O estorno ou a contestação da mensalidade bloqueiam o acesso na hora; o estorno da diferença de uma subida de plano e o de um pagamento antigo, quando o período em curso foi pago por outro, só entram no histórico.',
         'Com o acesso bloqueado, o painel mostra só a tela de bloqueio, os clientes da barbearia não conseguem marcar nem remarcar horários pelo link, mas ainda cancelam os que já têm, e nenhuma mensagem é enviada pelo WhatsApp. O acesso volta quando o pagamento é aprovado.',
       ],
     },
@@ -81,7 +81,7 @@ export const TERMOS_DE_USO: TextoLegal = {
       titulo: '9. Guarda dos dados e exportação',
       paragrafos: [
         'Os dados da barbearia (clientes, agendamentos, comandas e o restante do que você cadastrou) ficam guardados sem prazo, também depois de cancelar a assinatura ou de o acesso ser bloqueado.',
-        'Você baixa os dados da barbearia quando quiser, até com o acesso bloqueado, pelo botão "Exportar dados" da tela Assinatura e da tela de bloqueio. O Navalhado gera arquivos CSV de clientes, agendamentos e comandas.',
+        'Você baixa os clientes, os agendamentos e as comandas da barbearia quando quiser, até com o acesso bloqueado, pelo botão "Exportar dados" da tela Assinatura e da tela de bloqueio: o Navalhado gera um arquivo CSV de cada um. O restante do que você cadastrou, como os modelos de mensagem do WhatsApp, fica guardado, mas não vai nesses arquivos.',
       ],
     },
     {
@@ -134,7 +134,7 @@ export const POLITICA_DE_PRIVACIDADE: TextoLegal = {
       titulo: '4. Guarda dos dados depois do cancelamento',
       paragrafos: [
         'Quando a assinatura é cancelada ou o acesso é bloqueado, os dados da barbearia continuam guardados, sem prazo.',
-        'O Gerente baixa os dados pela tela do painel, no botão "Exportar dados" (que também está na tela de bloqueio). A exclusão dos dados é feita a pedido, pelo suporte.',
+        'O Gerente baixa os clientes, os agendamentos e as comandas pela tela do painel, no botão "Exportar dados" (que também está na tela de bloqueio). A exclusão dos dados é feita a pedido, pelo suporte.',
       ],
     },
     {
