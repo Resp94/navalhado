@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { formatCurrency } from '../../lib/currency';
+import { pluralizar } from '../../lib/plural';
 import {
   dataCompleta,
-  dataCurta,
   rotuloDaSituacaoDaCobranca,
   rotuloDoCartao,
   rotuloDoTipoDaCobranca,
@@ -10,6 +10,7 @@ import {
 import { rotuloDaSituacao } from '../../modules/assinatura/situacaoDaAssinatura';
 import {
   acoesDisponiveis,
+  limiteDeProfissionaisEmVigor,
   resumoDaAcao,
   rotuloDaAcao,
   rotuloDoMotivoDoBloqueio,
@@ -36,6 +37,8 @@ const NIVEIS = {
 } as const;
 
 const TITULO_DA_SECAO = 'm-0 text-xs font-extrabold uppercase tracking-wide text-text-secondary';
+
+const limiteEmTexto = (limite: number): string => `até ${limite} ${pluralizar(limite, 'profissional', 'profissionais')}`;
 
 const Linha: React.FC<{ rotulo: string; children: React.ReactNode }> = ({ rotulo, children }) => (
   <div className="flex justify-between gap-4 text-sm">
@@ -68,9 +71,11 @@ export const DetalhesDoTenant: React.FC<DetalhesDoTenantProps> = ({ tenantId, ao
   const executar = async (pedido: Parameters<typeof acoes.executar>[1]) => {
     if (!tenantId) return;
     const aceito = await acoes.executar(tenantId, pedido);
+    // Uma recusa por estado (já não está bloqueada, já não é cortesia, o teste mudou) quer dizer que o que a gaveta mostra está
+    // velho: relê também nesse caso, para os botões e o estado acompanharem o banco. A pergunta fica aberta, com o motivo.
+    recarregar();
     if (aceito === null) return;
     setPedindo(null);
-    recarregar();
     aoMudar();
   };
 
@@ -106,7 +111,7 @@ export const DetalhesDoTenant: React.FC<DetalhesDoTenantProps> = ({ tenantId, ao
         {desbloqueio && (
           <section aria-label="Desbloqueio" className="flex flex-col gap-1 rounded-lg border border-warning bg-warning-bg p-4">
             <h4 className={TITULO_DA_SECAO}>Desbloqueio manual</h4>
-            <p className="m-0 text-sm text-text-primary">Desbloqueada até {dataCurta(desbloqueio.ate, fuso)}</p>
+            <p className="m-0 text-sm text-text-primary">Desbloqueada até {dataCompleta(desbloqueio.ate, fuso)}</p>
             {desbloqueio.motivo && <p className="m-0 text-sm text-text-secondary">Motivo: {desbloqueio.motivo}</p>}
           </section>
         )}
@@ -116,15 +121,19 @@ export const DetalhesDoTenant: React.FC<DetalhesDoTenantProps> = ({ tenantId, ao
           {assinatura ? (
             <dl className="m-0 flex flex-col gap-2">
               <Linha rotulo="Plano">
-                <span>{`${assinatura.plano.nome}, ${formatCurrency(assinatura.plano.preco)} por mês (até ${assinatura.plano.limiteDeProfissionais} profissionais)`}</span>
+                <span>{`${assinatura.plano.nome}, ${formatCurrency(assinatura.plano.preco)} por mês (${limiteEmTexto(assinatura.plano.limiteDeProfissionais)})`}</span>
               </Linha>
               {assinatura.planoAgendado && (
                 <Linha rotulo="Plano agendado">
-                  <span>{`${assinatura.planoAgendado.nome}, ${formatCurrency(assinatura.planoAgendado.preco)} por mês, na próxima cobrança`}</span>
+                  <span>{`${assinatura.planoAgendado.nome}, ${formatCurrency(assinatura.planoAgendado.preco)} por mês, na próxima cobrança (${limiteEmTexto(assinatura.planoAgendado.limiteDeProfissionais)})`}</span>
                 </Linha>
               )}
               <Linha rotulo="Situação">{rotuloDaSituacao(assinatura.situacao)}</Linha>
-              <Linha rotulo="Profissionais ativos">{`${profissionaisAtivos} de ${assinatura.plano.limiteDeProfissionais}`}</Linha>
+              <Linha rotulo="Profissionais ativos">
+                {`${profissionaisAtivos} de ${limiteDeProfissionaisEmVigor(assinatura)}${
+                  limiteDeProfissionaisEmVigor(assinatura) < assinatura.plano.limiteDeProfissionais ? ' (limite do plano agendado)' : ''
+                }`}
+              </Linha>
               {assinatura.testeAte && <Linha rotulo="Fim do teste">{dataCompleta(assinatura.testeAte, fuso)}</Linha>}
               {assinatura.periodoAte && (
                 <Linha rotulo="Período pago">

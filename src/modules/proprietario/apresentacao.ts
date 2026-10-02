@@ -1,5 +1,5 @@
 import { dataCurta } from '../assinatura/apresentacaoDaAssinatura';
-import type { AcaoDoProprietario, AcessoDoTenant, DetalhesDoTenant } from './types';
+import type { AcaoDoProprietario, AcessoDoTenant, AssinaturaDoTenant, DetalhesDoTenant } from './types';
 
 export interface AcoesDisponiveis {
   estenderTeste: boolean;
@@ -28,8 +28,18 @@ export function acoesDisponiveis({ assinatura, acesso }: DetalhesDoTenant): Acoe
     encerrarCortesia: assinatura.situacao === 'courtesy',
     // Bloqueada de verdade, ou liberada à mão (um desbloqueio em vigor é de uma barbearia bloqueada: dá para mudar a data).
     desbloquear: acesso.nivel === 'blocked' || acesso.motivo === 'unblocked',
-    bloquear: assinatura.situacao !== 'blocked',
+    // Quem ainda não está bloqueado, e quem está liberada à mão: bloquear de novo encerra o desbloqueio na hora (o banco o aceita;
+    // numa bloqueada sem desbloqueio em vigor, "já está bloqueada").
+    bloquear: assinatura.situacao !== 'blocked' || acesso.motivo === 'unblocked',
   };
+}
+
+/**
+ * O limite de profissionais que o banco aplica à barbearia: o do plano, ou o do plano agendado se for menor (com uma descida
+ * agendada o gatilho recusa o profissional acima do menor dos dois).
+ */
+export function limiteDeProfissionaisEmVigor({ plano, planoAgendado }: AssinaturaDoTenant): number {
+  return Math.min(plano.limiteDeProfissionais, planoAgendado?.limiteDeProfissionais ?? plano.limiteDeProfissionais);
 }
 
 const ate = (data: Date | null, fuso: string): string => (data ? ` até ${dataCurta(data, fuso)}` : '');
@@ -111,8 +121,11 @@ export function resumoDaAcao({ acao, detalhes }: AcaoDoProprietario, fuso: strin
       const motivo = typeof detalhes.reason === 'string' ? detalhes.reason : '';
       return [dia ? `até ${dia}` : '', motivo].filter(Boolean).join(': ');
     }
-    case 'admin_block_tenant':
-      return typeof detalhes.reason === 'string' ? detalhes.reason : '';
+    case 'admin_block_tenant': {
+      const motivo = typeof detalhes.reason === 'string' ? detalhes.reason : '';
+      // O bloqueio de uma barbearia que já estava bloqueada, mas liberada à mão, encerrou o desbloqueio.
+      return detalhes.ended_unblock_until ? ['encerrou o desbloqueio', motivo].filter(Boolean).join(': ') : motivo;
+    }
     case 'admin_extend_trial': {
       const dia = dataDoDetalhe(detalhes.trial_ends_at, fuso);
       return dia ? `até ${dia}` : '';

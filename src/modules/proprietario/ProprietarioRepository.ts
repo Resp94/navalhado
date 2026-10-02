@@ -1,4 +1,4 @@
-import type { AvisoQueFalhou, DetalhesDoTenant, IProprietarioAdapter } from './types';
+import type { AvisosQueFalharam, DetalhesDoTenant, IProprietarioAdapter } from './types';
 
 export class ProprietarioError extends Error {
   constructor(message: string) {
@@ -14,7 +14,7 @@ const MENSAGENS_DO_BANCO: Record<string, string> = {
   ADMIN_ONLY: 'Só o Proprietário pode fazer isso.',
   SUBSCRIPTION_NOT_FOUND: 'Esta barbearia não tem assinatura.',
   TENANT_NOT_FOUND: 'Barbearia não encontrada.',
-  INVALID_DATE: 'A data precisa ser de hoje em diante e, para estender o teste, depois do fim dele.',
+  INVALID_DATE: 'A data precisa ser de hoje em diante (e dentro de 20 anos) e, para estender o teste, depois do fim dele.',
   REASON_REQUIRED: 'Informe o motivo.',
   NOT_IN_TRIAL: 'Só dá para estender o teste de quem está em teste ou teve o teste ou a cortesia vencidos.',
   NOT_COURTESY: 'Esta barbearia não está em cortesia.',
@@ -23,6 +23,9 @@ const MENSAGENS_DO_BANCO: Record<string, string> = {
 };
 
 const DIA = /^\d{4}-\d{2}-\d{2}$/;
+
+/** Quantos avisos que falharam a lista mostra (o banco aceita de 1 a 200). */
+export const LIMITE_DOS_AVISOS = 50;
 
 /** O PostgREST devolve o erro como um objeto com `message`, e não como uma instância de Error. */
 function codigoDoErro(erro: unknown): string {
@@ -99,7 +102,12 @@ export class ProprietarioRepository {
     return this.executar(() => this.adapter.bloquear(this.barbearia(tenantId), this.motivo(motivo)));
   }
 
-  avisosQueFalharam(limite = 50): Promise<AvisoQueFalhou[]> {
-    return this.executar(() => this.adapter.listarAvisosQueFalharam(limite));
+  /**
+   * Os avisos por e-mail que falharam nos últimos 30 dias, do mais novo para o mais velho. Pede um a mais do que `limite`: o banco
+   * não devolve o total, e o que sobra diz que há mais do que cabe na lista.
+   */
+  async avisosQueFalharam(limite = LIMITE_DOS_AVISOS): Promise<AvisosQueFalharam> {
+    const lidos = await this.executar(() => this.adapter.listarAvisosQueFalharam(limite + 1));
+    return { avisos: lidos.slice(0, limite), haMais: lidos.length > limite };
   }
 }

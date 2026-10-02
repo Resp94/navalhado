@@ -1,7 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import type { SituacaoDaAssinatura } from '../../assinatura/situacaoDaAssinatura';
 import type { MotivoDeAcesso } from '../../assinatura/types';
-import { acoesDisponiveis, resumoDaAcao, rotuloDaAcao, rotuloDoMotivoDoBloqueio, rotuloDoTipoDeAviso, textoDoAcesso } from '../apresentacao';
+import {
+  acoesDisponiveis,
+  limiteDeProfissionaisEmVigor,
+  resumoDaAcao,
+  rotuloDaAcao,
+  rotuloDoMotivoDoBloqueio,
+  rotuloDoTipoDeAviso,
+  textoDoAcesso,
+} from '../apresentacao';
 import type { AcaoDoProprietario, AcessoDoTenant, AssinaturaDoTenant, DetalhesDoTenant } from '../types';
 
 const PLANO = { id: 'plano-maquina', nome: 'Máquina', preco: 89.9, limiteDeProfissionais: 5 };
@@ -75,12 +83,27 @@ describe('acoesDisponiveis', () => {
       { estenderTeste: true, darCortesia: true, desbloquear: true, bloquear: true },
     ],
     [
-      'bloqueada e desbloqueada à mão: dá para mudar a data',
+      // Bloquear de novo encerra o desbloqueio na hora (o banco aceita; sem o desbloqueio, "já está bloqueada").
+      'bloqueada e desbloqueada à mão: dá para mudar a data e para encerrar o desbloqueio',
       detalhes(assinatura('blocked', { motivoDoBloqueio: 'refunded', desbloqueadaAte: new Date('2040-03-11T02:59:59.999Z') }), acesso('warning', 'unblocked')),
-      { darCortesia: true, desbloquear: true },
+      { darCortesia: true, desbloquear: true, bloquear: true },
     ],
   ])('%s', (_caso, entrada, esperado) => {
     expect(acoesDisponiveis(entrada)).toEqual({ ...todas, ...esperado });
+  });
+});
+
+describe('limiteDeProfissionaisEmVigor', () => {
+  const tesoura = { id: 'plano-tesoura', nome: 'Tesoura', preco: 59.9, limiteDeProfissionais: 1 };
+  const bancada = { id: 'plano-bancada', nome: 'Bancada', preco: 159.9, limiteDeProfissionais: 10 };
+
+  it('é o limite do plano da assinatura', () => {
+    expect(limiteDeProfissionaisEmVigor(assinatura('active'))).toBe(5);
+  });
+
+  it('com uma descida agendada vale o menor limite entre o plano atual e o agendado (o gatilho do banco recusa acima dele)', () => {
+    expect(limiteDeProfissionaisEmVigor(assinatura('active', { plano: bancada, planoAgendado: PLANO }))).toBe(5);
+    expect(limiteDeProfissionaisEmVigor(assinatura('active', { planoAgendado: tesoura }))).toBe(1);
   });
 });
 
@@ -157,6 +180,15 @@ describe('resumoDaAcao', () => {
 
   it('o bloqueio manual mostra o motivo', () => {
     expect(resumoDaAcao(acao('admin_block_tenant', { reason: 'uso indevido', previous_status: 'active' }), FUSO)).toBe('uso indevido');
+  });
+
+  it('o bloqueio que encerrou um desbloqueio diz isso, com o motivo', () => {
+    expect(
+      resumoDaAcao(
+        acao('admin_block_tenant', { reason: 'o estorno foi contestado', previous_status: 'blocked', ended_unblock_until: '2040-03-11T02:59:59.999999+00:00' }),
+        FUSO,
+      ),
+    ).toBe('encerrou o desbloqueio: o estorno foi contestado');
   });
 
   it('o teste estendido mostra até quando', () => {

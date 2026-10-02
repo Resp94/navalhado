@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   autorizadaEmTeste,
   dataCompleta,
+  dataCurta,
   descreverSituacao,
   fimDoAcessoAoCancelar,
   pagamentoConfirmado,
@@ -107,6 +108,14 @@ describe('fuso da barbearia', () => {
 
     expect(descreverSituacao(cancelada, null)).toBe('Cancelada até 30/10');
     expect(descreverSituacao(cancelada, null, 'America/Manaus')).toBe('Cancelada até 29/10');
+  });
+
+  // O fuso gravado na barbearia é texto livre (o Gerente o grava pela API): o que o Intl não conhece não pode derrubar a tela. O banco
+  // faz o mesmo (`private.valid_timezone`): cai em Brasília.
+  it('um fuso que o navegador não conhece cai em Brasília, como o banco, e não quebra', () => {
+    expect(dataCompleta(instante, 'Brazil/Foo')).toBe('30/10/2026');
+    expect(dataCurta(instante, 'Brazil/Foo')).toBe('30/10');
+    expect(dataCurta(instante, '')).toBe('30/10');
   });
 });
 

@@ -26,8 +26,8 @@ const aviso = (extra: Partial<AvisoQueFalhou>): AvisoQueFalhou => ({
   ...extra,
 });
 
-const com = (estado: { avisos?: AvisoQueFalhou[]; status?: string }) =>
-  mockUseAvisos.mockReturnValue({ avisos: [], status: 'ready', recarregar, ...estado });
+const com = (estado: { avisos?: AvisoQueFalhou[]; haMais?: boolean; status?: string }) =>
+  mockUseAvisos.mockReturnValue({ avisos: [], haMais: false, status: 'ready', recarregar, ...estado });
 
 describe('AvisosQueFalharam', () => {
   beforeEach(() => vi.clearAllMocks());
@@ -69,6 +69,31 @@ describe('AvisosQueFalharam', () => {
     expect(linhas[0]).toHaveTextContent('01/10/2026');
     expect(linhas[1]).toHaveTextContent('Teste terminando');
     expect(linhas[1]).toHaveTextContent('—');
+  });
+
+  it('diz que são os dos últimos 30 dias (o banco não lista os mais velhos: o cartão volta a ficar vazio depois de a chave ser trocada)', () => {
+    com({ avisos: [aviso({})] });
+    render(<AvisosQueFalharam />);
+
+    expect(screen.getByText(/últimos 30 dias/i)).toBeInTheDocument();
+  });
+
+  it('com mais avisos do que a lista traz, o número não se passa pelo total: "50+" e o aviso de que só os mais recentes aparecem', () => {
+    const cinquenta = Array.from({ length: 50 }, (_, indice) => aviso({ id: `aviso-${indice}` }));
+    com({ avisos: cinquenta, haMais: true });
+    render(<AvisosQueFalharam />);
+
+    const regiao = screen.getByRole('region', { name: 'Avisos por e-mail que falharam' });
+    expect(within(regiao).getByRole('heading', { name: /avisos por e-mail que falharam \(50\+\)/i })).toBeInTheDocument();
+    expect(within(regiao).getByText(/só os 50 mais recentes aparecem aqui/i)).toBeInTheDocument();
+  });
+
+  it('com a lista inteira, mostra o total sem o "+" e sem o aviso', () => {
+    com({ avisos: [aviso({}), aviso({ id: 'aviso-2' })] });
+    render(<AvisosQueFalharam />);
+
+    expect(screen.getByRole('heading', { name: /\(2\)/ })).toBeInTheDocument();
+    expect(screen.queryByText(/mais recentes aparecem aqui/i)).not.toBeInTheDocument();
   });
 
   it('se a leitura falha, diz isso e deixa tentar de novo', async () => {

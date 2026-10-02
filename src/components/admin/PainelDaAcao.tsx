@@ -126,6 +126,11 @@ export const PainelDaAcao: React.FC<PainelDaAcaoProps> = ({ tipo, detalhes, emAn
               cancelada lá.
             </p>
           )}
+          {assinatura?.planoAgendado && (
+            <p className={AVISO}>
+              {`Há uma descida de plano agendada, para ${assinatura.planoAgendado.nome}: a cortesia a desfaz e a barbearia fica no plano atual (${assinatura.plano.nome}), mas o Mercado Pago já cobra o valor do plano menor.`}
+            </p>
+          )}
         </>
       )}
 
@@ -152,8 +157,9 @@ export const PainelDaAcao: React.FC<PainelDaAcaoProps> = ({ tipo, detalhes, emAn
 
       {tipo === 'bloquear' && (
         <p className={AVISO}>
-          O acesso fecha na hora: o Gerente e os barbeiros passam a ver só a tela de bloqueio. Um pagamento aprovado depois reativa a barbearia.
-          Não cancela nada no Mercado Pago.
+          {detalhes.acesso.motivo === 'unblocked'
+            ? 'O desbloqueio acaba agora e o bloqueio de antes volta a valer: o Gerente e os barbeiros passam a ver só a tela de bloqueio. Um pagamento aprovado depois reativa a barbearia. Não altera nada no Mercado Pago.'
+            : 'O acesso fecha na hora: o Gerente e os barbeiros passam a ver só a tela de bloqueio. Um pagamento aprovado depois reativa a barbearia. Não cancela nada no Mercado Pago.'}
         </p>
       )}
 

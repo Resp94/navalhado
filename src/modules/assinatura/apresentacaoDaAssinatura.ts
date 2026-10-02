@@ -4,13 +4,25 @@ import type { AssinaturaCancelavel, CartaoDaAssinatura, Cobranca, DetalhesDaAssi
 
 const FUSO_PADRAO = 'America/Sao_Paulo';
 
+/**
+ * O fuso gravado na barbearia é texto livre (o Gerente o grava pela API) e o `Intl` lança `RangeError` com um que não conhece: a tela
+ * que o formata (a lista e a gaveta do Proprietário, a faixa do Gerente) ficaria em branco. O banco cai em Brasília nesse caso
+ * (`private.valid_timezone`), e aqui também.
+ */
+function formatarData(data: Date, timezone: string, opcoes: Intl.DateTimeFormatOptions): string {
+  try {
+    return data.toLocaleDateString('pt-BR', { ...opcoes, timeZone: timezone });
+  } catch {
+    return data.toLocaleDateString('pt-BR', { ...opcoes, timeZone: FUSO_PADRAO });
+  }
+}
+
 /** DD/MM no fuso da barbearia (Brasília, se não houver outro). */
 export const dataCurta = (data: Date, timezone: string = FUSO_PADRAO): string =>
-  data.toLocaleDateString('pt-BR', { timeZone: timezone, day: '2-digit', month: '2-digit' });
+  formatarData(data, timezone, { day: '2-digit', month: '2-digit' });
 
 /** DD/MM/AAAA no fuso da barbearia (Brasília, se não houver outro). */
-export const dataCompleta = (data: Date, timezone: string = FUSO_PADRAO): string =>
-  data.toLocaleDateString('pt-BR', { timeZone: timezone });
+export const dataCompleta = (data: Date, timezone: string = FUSO_PADRAO): string => formatarData(data, timezone, {});
 
 /** A situação da assinatura em linguagem de gente. `diasRestantes` é a contagem do teste, se houver. */
 export function descreverSituacao(

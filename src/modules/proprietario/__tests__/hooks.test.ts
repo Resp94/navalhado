@@ -125,12 +125,21 @@ describe('useDetalhesDoTenant', () => {
 
 describe('useAvisosQueFalharam', () => {
   it('lê os avisos que falharam', async () => {
-    mockAvisos.mockResolvedValue([aviso]);
+    mockAvisos.mockResolvedValue({ avisos: [aviso], haMais: false });
     const { result } = renderHook(() => useAvisosQueFalharam());
 
     expect(result.current.status).toBe('loading');
     await waitFor(() => expect(result.current.status).toBe('ready'));
     expect(result.current.avisos).toEqual([aviso]);
+    expect(result.current.haMais).toBe(false);
+  });
+
+  it('diz quando há mais avisos do que a lista traz', async () => {
+    mockAvisos.mockResolvedValue({ avisos: [aviso], haMais: true });
+    const { result } = renderHook(() => useAvisosQueFalharam());
+
+    await waitFor(() => expect(result.current.status).toBe('ready'));
+    expect(result.current.haMais).toBe(true);
   });
 
   it('a falha deixa a lista vazia e diz que não leu', async () => {
@@ -139,6 +148,7 @@ describe('useAvisosQueFalharam', () => {
 
     await waitFor(() => expect(result.current.status).toBe('error'));
     expect(result.current.avisos).toEqual([]);
+    expect(result.current.haMais).toBe(false);
   });
 });
 

@@ -50,16 +50,58 @@ describe('ProprietarioRepository', () => {
       expect(adaptador.chamadas.map((chamada) => chamada.argumentos.at(-1))).toEqual(['o cliente paga na segunda', 'uso indevido']);
     });
 
-    it('os avisos que falharam vêm com um limite que o repositório escolhe quando ninguém pede', async () => {
+    // Pede um a mais do que mostra: o banco não devolve o total, e a tela precisa saber se há mais do que cabe nela.
+    it('os avisos que falharam vêm com um limite que o repositório escolhe quando ninguém pede, e pedem um a mais para saber se há mais', async () => {
       const { adaptador, repositorio } = montar();
 
       await repositorio.avisosQueFalharam();
       await repositorio.avisosQueFalharam(10);
 
       expect(adaptador.chamadas).toEqual([
-        { acao: 'listarAvisosQueFalharam', argumentos: [50] },
-        { acao: 'listarAvisosQueFalharam', argumentos: [10] },
+        { acao: 'listarAvisosQueFalharam', argumentos: [51] },
+        { acao: 'listarAvisosQueFalharam', argumentos: [11] },
       ]);
+    });
+
+    describe('quantos avisos que falharam cabem', () => {
+      const avisos = (quantos: number) =>
+        Array.from({ length: quantos }, (_, indice) => ({
+          id: `aviso-${indice}`,
+          tenantId: 'tenant-1',
+          barbearia: 'Barbearia Alpha',
+          tipo: 'trial_ending',
+          referenciaEm: new Date('2026-09-20T12:00:00Z'),
+          tentativas: 3,
+          motivo: null,
+          criadoEm: new Date('2026-09-29T12:00:00Z'),
+        }));
+
+      it('com menos do que o limite, mostra todos e não diz que há mais', async () => {
+        const repositorio = new ProprietarioRepository(new InMemoryProprietarioAdapter({ avisos: avisos(3) }));
+
+        const lidos = await repositorio.avisosQueFalharam(10);
+
+        expect(lidos.avisos).toHaveLength(3);
+        expect(lidos.haMais).toBe(false);
+      });
+
+      it('com exatamente o limite, mostra todos e não diz que há mais', async () => {
+        const repositorio = new ProprietarioRepository(new InMemoryProprietarioAdapter({ avisos: avisos(10) }));
+
+        const lidos = await repositorio.avisosQueFalharam(10);
+
+        expect(lidos.avisos).toHaveLength(10);
+        expect(lidos.haMais).toBe(false);
+      });
+
+      it('com um a mais do que o limite, mostra o limite e diz que há mais', async () => {
+        const repositorio = new ProprietarioRepository(new InMemoryProprietarioAdapter({ avisos: avisos(11) }));
+
+        const lidos = await repositorio.avisosQueFalharam(10);
+
+        expect(lidos.avisos.map((aviso) => aviso.id)).toEqual(avisos(10).map((aviso) => aviso.id));
+        expect(lidos.haMais).toBe(true);
+      });
     });
   });
 
@@ -89,7 +131,7 @@ describe('ProprietarioRepository', () => {
       ['ADMIN_ONLY', 'Só o Proprietário pode fazer isso.'],
       ['SUBSCRIPTION_NOT_FOUND', 'Esta barbearia não tem assinatura.'],
       ['TENANT_NOT_FOUND', 'Barbearia não encontrada.'],
-      ['INVALID_DATE', 'A data precisa ser de hoje em diante e, para estender o teste, depois do fim dele.'],
+      ['INVALID_DATE', 'A data precisa ser de hoje em diante (e dentro de 20 anos) e, para estender o teste, depois do fim dele.'],
       ['REASON_REQUIRED', 'Informe o motivo.'],
       ['NOT_IN_TRIAL', 'Só dá para estender o teste de quem está em teste ou teve o teste ou a cortesia vencidos.'],
       ['NOT_COURTESY', 'Esta barbearia não está em cortesia.'],

@@ -91,6 +91,12 @@ export interface AvisoQueFalhou {
   criadoEm: Date;
 }
 
+/** Os avisos que falharam que cabem na lista, e se há mais (o banco não devolve o total). */
+export interface AvisosQueFalharam {
+  avisos: AvisoQueFalhou[];
+  haMais: boolean;
+}
+
 export interface IProprietarioAdapter {
   obterDetalhes(tenantId: string): Promise<DetalhesDoTenant>;
   /** `ate` é um dia (AAAA-MM-DD) no fuso da barbearia: o teste vai até o fim desse dia. */

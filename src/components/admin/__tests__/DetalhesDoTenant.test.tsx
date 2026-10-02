@@ -110,7 +110,6 @@ describe('DetalhesDoTenant', () => {
         periodoAte: new Date('2026-09-01T12:00:00Z'),
         assinaturaNoMercadoPago: 'mp-sub-1',
         cartao: { bandeira: 'visa', final: '5682' },
-        planoAgendado: { id: 'plano-tesoura', nome: 'Tesoura', preco: 59.9, limiteDeProfissionais: 1 },
       }),
       acesso('warning', 'unblocked', new Date('2040-03-11T03:59:59.999Z')),
       {
@@ -171,14 +170,13 @@ describe('DetalhesDoTenant', () => {
       expect(assinaturaDaTela.getByText('2 de 5')).toBeInTheDocument();
       expect(assinaturaDaTela.getByText('Visa final 5682')).toBeInTheDocument();
       expect(assinaturaDaTela.getByText('mp-sub-1')).toBeInTheDocument();
-      expect(assinaturaDaTela.getByText(/Tesoura/)).toBeInTheDocument();
     });
 
-    it('o desbloqueio em vigor, com o motivo que o Proprietário deu', () => {
+    it('o desbloqueio em vigor, com o motivo que o Proprietário deu e o ano (uma data sem o ano esconde um erro de digitação)', () => {
       renderizar();
 
       expect(screen.getByText(/o cliente paga na segunda/, { selector: 'p' })).toBeInTheDocument();
-      expect(screen.getByText(/Desbloqueada até 10\/03/)).toBeInTheDocument();
+      expect(screen.getByText(/Desbloqueada até 10\/03\/2040/)).toBeInTheDocument();
     });
 
     it('o histórico de cobranças, da mais nova para a mais antiga', () => {
@@ -206,6 +204,47 @@ describe('DetalhesDoTenant', () => {
     });
   });
 
+  describe('o plano e o limite de profissionais', () => {
+    const TESOURA = { id: 'plano-tesoura', nome: 'Tesoura', preco: 59.9, limiteDeProfissionais: 1 };
+    const BANCADA = { id: 'plano-bancada', nome: 'Bancada', preco: 159.9, limiteDeProfissionais: 10 };
+
+    it('o limite de 1 profissional não vira "1 profissionais"', () => {
+      mostrar(detalhes(assinatura('active', { plano: TESOURA }), acesso('allowed', 'active'), { profissionaisAtivos: 1 }));
+      renderizar();
+
+      const assinaturaDaTela = within(screen.getByRole('region', { name: 'Assinatura' }));
+      expect(assinaturaDaTela.getByText(/Tesoura, R\$ 59,90 por mês \(até 1 profissional\)/)).toBeInTheDocument();
+      expect(assinaturaDaTela.queryByText(/1 profissionais/)).not.toBeInTheDocument();
+    });
+
+    it('o limite de mais de um continua no plural', () => {
+      mostrar(detalhes(assinatura('active'), acesso('allowed', 'active')));
+      renderizar();
+
+      expect(screen.getByText(/\(até 5 profissionais\)/)).toBeInTheDocument();
+    });
+
+    it('com uma descida agendada mostra o plano agendado e conta os profissionais contra o menor limite, que é o que o banco aplica', () => {
+      mostrar(
+        detalhes(assinatura('active', { plano: BANCADA, planoAgendado: PLANO }), acesso('allowed', 'active'), { profissionaisAtivos: 5 }),
+      );
+      renderizar();
+
+      const assinaturaDaTela = within(screen.getByRole('region', { name: 'Assinatura' }));
+      expect(assinaturaDaTela.getByText(/Máquina, R\$ 89,90 por mês, na próxima cobrança \(até 5 profissionais\)/)).toBeInTheDocument();
+      // Um sexto profissional é recusado (limite 5, o do plano agendado), e a tela explica por quê.
+      expect(assinaturaDaTela.getByText('5 de 5 (limite do plano agendado)')).toBeInTheDocument();
+    });
+
+    it('sem descida agendada, o limite é o do plano e não há nota', () => {
+      mostrar(detalhes(assinatura('active'), acesso('allowed', 'active')));
+      renderizar();
+
+      expect(screen.getByText('2 de 5')).toBeInTheDocument();
+      expect(screen.queryByText(/limite do plano agendado/)).not.toBeInTheDocument();
+    });
+  });
+
   it('a barbearia sem assinatura diz isso e não oferece ação nenhuma', () => {
     mostrar(detalhes(null, acesso('allowed', 'no_subscription')));
     renderizar();
@@ -230,6 +269,12 @@ describe('DetalhesDoTenant', () => {
         detalhes(assinatura('blocked', { motivoDoBloqueio: 'refunded' }), acesso('blocked', 'refunded')),
         ['Dar cortesia', 'Desbloquear'],
         ['Estender teste', 'Bloquear', 'Encerrar cortesia'],
+      ],
+      [
+        'bloqueada e liberada à mão (dá para mudar a data e para encerrar o desbloqueio)',
+        detalhes(assinatura('blocked', { motivoDoBloqueio: 'refunded' }), acesso('warning', 'unblocked')),
+        ['Dar cortesia', 'Desbloquear', 'Bloquear'],
+        ['Estender teste', 'Encerrar cortesia'],
       ],
       ['em cortesia', detalhes(assinatura('courtesy'), acesso('allowed', 'courtesy')), ['Alterar cortesia', 'Encerrar cortesia', 'Bloquear'], ['Dar cortesia', 'Desbloquear', 'Estender teste']],
       ['ativa', detalhes(assinatura('active'), acesso('allowed', 'active')), ['Dar cortesia', 'Bloquear'], ['Estender teste', 'Desbloquear', 'Encerrar cortesia']],
@@ -296,7 +341,9 @@ describe('DetalhesDoTenant', () => {
       expect(screen.queryByLabelText(/estender o teste até/i)).not.toBeInTheDocument();
     });
 
-    it('quando o banco recusa, a pergunta fica aberta com o motivo, e nada é relido', async () => {
+    // Uma recusa por estado (já não está bloqueada, já não é cortesia, o teste mudou) quer dizer que o que a gaveta mostra está velho:
+    // relê, para os botões e o estado acompanharem o banco, e deixa a pergunta aberta com o motivo. A lista só relê quando o banco aceitou.
+    it('quando o banco recusa, a pergunta fica aberta com o motivo, os detalhes são relidos e a lista não', async () => {
       executar.mockResolvedValue(null);
       acoesEm({ erro: 'A data precisa ser de hoje em diante.' });
       const { aoMudar } = renderizar();
@@ -306,7 +353,7 @@ describe('DetalhesDoTenant', () => {
 
       expect(screen.getByRole('alert')).toHaveTextContent('A data precisa ser de hoje em diante.');
       expect(screen.getByLabelText(/estender o teste até/i)).toBeInTheDocument();
-      expect(recarregar).not.toHaveBeenCalled();
+      expect(recarregar).toHaveBeenCalledTimes(1);
       expect(aoMudar).not.toHaveBeenCalled();
     });
 
@@ -359,6 +406,34 @@ describe('DetalhesDoTenant', () => {
       await userEvent.click(screen.getByRole('button', { name: 'Dar cortesia' }));
 
       expect(screen.queryByText(/a cortesia não a cancela/i)).not.toBeInTheDocument();
+    });
+
+    // O gatilho do banco tira a descida agendada de quem está em cortesia (sem cobrança, nada a agendar), enquanto o valor da
+    // assinatura no Mercado Pago já é o do plano menor: o Proprietário precisa saber antes de confirmar.
+    it('com uma descida de plano agendada avisa que a cortesia a desfaz e que o Mercado Pago já cobra o valor do plano menor', async () => {
+      mostrar(
+        detalhes(
+          assinatura('active', {
+            assinaturaNoMercadoPago: 'mp-sub-1',
+            plano: { id: 'plano-bancada', nome: 'Bancada', preco: 159.9, limiteDeProfissionais: 10 },
+            planoAgendado: PLANO,
+          }),
+          acesso('allowed', 'active'),
+        ),
+      );
+      renderizar();
+      await userEvent.click(screen.getByRole('button', { name: 'Dar cortesia' }));
+
+      expect(screen.getByText(/descida de plano agendada, para Máquina/i)).toHaveTextContent(/a cortesia a desfaz/i);
+      expect(screen.getByText(/descida de plano agendada, para Máquina/i)).toHaveTextContent(/já cobra o valor do plano menor/i);
+    });
+
+    it('sem descida agendada não traz esse aviso', async () => {
+      mostrar(detalhes(assinatura('active'), acesso('allowed', 'active')));
+      renderizar();
+      await userEvent.click(screen.getByRole('button', { name: 'Dar cortesia' }));
+
+      expect(screen.queryByText(/descida de plano agendada/i)).not.toBeInTheDocument();
     });
   });
 
@@ -428,6 +503,20 @@ describe('DetalhesDoTenant', () => {
       await userEvent.click(confirmar);
 
       expect(executar).toHaveBeenCalledWith('tenant-1', { tipo: 'bloquear', motivo: 'uso indevido' });
+    });
+
+    it('numa barbearia liberada à mão, diz que encerra o desbloqueio e que o bloqueio de antes volta', async () => {
+      mostrar(detalhes(assinatura('blocked', { motivoDoBloqueio: 'refunded' }), acesso('warning', 'unblocked')));
+      renderizar();
+      await userEvent.click(screen.getByRole('button', { name: 'Bloquear' }));
+
+      expect(screen.getByText(/o desbloqueio acaba agora/i)).toBeInTheDocument();
+      expect(screen.getByText(/o bloqueio de antes volta a valer/i)).toBeInTheDocument();
+      expect(screen.queryByText(/o acesso fecha na hora/i)).not.toBeInTheDocument();
+
+      await userEvent.type(screen.getByLabelText(/motivo/i), 'o estorno foi contestado');
+      await userEvent.click(screen.getByRole('button', { name: 'Confirmar: bloquear' }));
+      expect(executar).toHaveBeenCalledWith('tenant-1', { tipo: 'bloquear', motivo: 'o estorno foi contestado' });
     });
   });
 
