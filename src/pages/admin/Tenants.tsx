@@ -2,20 +2,11 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { useToast } from '../../components/Toast';
-import { Modal } from '../../components/Modal';
-import {
-  camposDaMudancaManual,
-  rotuloDaSituacao,
-  type MudancaManual,
-  type SituacaoDaAssinatura,
-} from '../../modules/assinatura/situacaoDaAssinatura';
-import { 
-  WarningIcon, 
-  InfoIcon,
-  SuccessIcon,
-  ErrorIcon,
-  SearchIcon
-} from '../../components/Icons';
+import { AvisosQueFalharam } from '../../components/admin/AvisosQueFalharam';
+import { DetalhesDoTenant } from '../../components/admin/DetalhesDoTenant';
+import { dataCurta } from '../../modules/assinatura/apresentacaoDaAssinatura';
+import { rotuloDaSituacao, type SituacaoDaAssinatura } from '../../modules/assinatura/situacaoDaAssinatura';
+import { InfoIcon, SearchIcon } from '../../components/Icons';
 
 interface TenantManagementItem {
   tenant_id: string;
@@ -29,6 +20,9 @@ interface TenantManagementItem {
   subscription_status: SituacaoDaAssinatura | null;
   subscription_end_date: string | null;
   whatsapp_status: 'connected' | 'disconnected' | 'pairing' | null;
+  /** Até quando uma barbearia bloqueada foi liberada à mão (o fim de um dia no fuso dela), ou nulo. */
+  subscription_unblocked_until: string | null;
+  tenant_timezone: string | null;
 }
 
 const STATUS_BADGE_CLASSES: Record<string, string> = {
@@ -51,10 +45,8 @@ export const Tenants: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [tenants, setTenants] = useState<TenantManagementItem[]>([]);
   const [search, setSearch] = useState('');
-  const [selectedTenant, setSelectedTenant] = useState<TenantManagementItem | null>(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [newStatus, setNewStatus] = useState<MudancaManual>('courtesy');
-  const [actionLoading, setActionLoading] = useState(false);
+  // A barbearia cuja visão de detalhe (e as ações do Proprietário) está aberta.
+  const [tenantAberto, setTenantAberto] = useState<string | null>(null);
   const [adminName, setAdminName] = useState('Administrador');
 
   useEffect(() => {
@@ -120,40 +112,16 @@ export const Tenants: React.FC = () => {
     return () => clearTimeout(delayDebounceFn);
   }, [search]);
 
-  const handleOpenStatusModal = (tenant: TenantManagementItem, status: MudancaManual) => {
-    setSelectedTenant(tenant);
-    setNewStatus(status);
-    setIsModalOpen(true);
-  };
-
-  const handleUpdateStatus = async () => {
-    if (!selectedTenant) return;
-    try {
-      setActionLoading(true);
-      
-      // Atualizar o status da assinatura correspondente na tabela tenant_subscriptions
-      const { error } = await supabase
-        .from('tenant_subscriptions')
-        .update(camposDaMudancaManual(newStatus))
-        .eq('tenant_id', selectedTenant.tenant_id);
-
-      if (error) throw error;
-
-      addToast(`Status da barbearia "${selectedTenant.tenant_name}" atualizado para ${rotuloDaSituacao(newStatus)}.`, 'success');
-      setIsModalOpen(false);
-      setSelectedTenant(null);
-      fetchTenants(); // Recarregar lista
-    } catch (error: any) {
-      console.error('Error updating tenant subscription status:', error);
-      addToast('Não foi possível alterar o status da assinatura.', 'error');
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
   const formatDate = (dateStr: string | null) => {
     if (!dateStr) return 'N/A';
     return new Date(dateStr).toLocaleDateString('pt-BR');
+  };
+
+  // Barbearia bloqueada que o Proprietário liberou à mão: até que dia (o fim de um dia no fuso dela). Passada a data, não aparece.
+  const liberadaAte = (t: TenantManagementItem): string | null => {
+    if (!t.subscription_unblocked_until) return null;
+    const fim = new Date(t.subscription_unblocked_until);
+    return fim.getTime() > Date.now() ? `Liberada até ${dataCurta(fim, t.tenant_timezone ?? undefined)}` : null;
   };
 
   const formatCurrency = (val: number | null) => {
@@ -227,6 +195,8 @@ export const Tenants: React.FC = () => {
             <h2>Barbearias parceiras</h2>
             <p>Gerencie as assinaturas, limites e conexões de WhatsApp de cada barbearia.</p>
           </section>
+
+          <AvisosQueFalharam />
 
           {/* SEARCH BAR */}
           <section className="w-full mb-3">
@@ -310,39 +280,22 @@ export const Tenants: React.FC = () => {
 
                         {/* Subscription Status */}
                         <td className="px-6 py-5">
-                          <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold capitalize ${STATUS_BADGE_CLASSES[t.subscription_status || 'canceled']}`}>
-                            {rotuloDaSituacao(t.subscription_status)}
-                          </span>
+                          <div className="flex flex-col items-start gap-1">
+                            <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold capitalize ${STATUS_BADGE_CLASSES[t.subscription_status || 'canceled']}`}>
+                              {rotuloDaSituacao(t.subscription_status)}
+                            </span>
+                            {liberadaAte(t) && <span className="text-xs text-text-secondary">{liberadaAte(t)}</span>}
+                          </div>
                         </td>
 
                         {/* Ações */}
                         <td className="px-6 py-5">
-                          <div className="flex gap-1.5">
-                            {t.subscription_status !== 'active' && t.subscription_status !== 'courtesy' && (
-                              <button
-                                onClick={() => handleOpenStatusModal(t, 'courtesy')}
-                                className="px-2.5 py-1.5 text-[0.7rem] font-semibold rounded-md border-none cursor-pointer transition-all duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] text-white bg-success hover:bg-[#0c8c5f] active:scale-95"
-                              >
-                                Dar cortesia
-                              </button>
-                            )}
-                            {t.subscription_status !== 'blocked' && t.subscription_status !== 'canceled' && (
-                              <button
-                                onClick={() => handleOpenStatusModal(t, 'blocked')}
-                                className="px-2.5 py-1.5 text-[0.7rem] font-semibold rounded-md border-none cursor-pointer transition-all duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] text-white bg-warning hover:bg-[#b86405] active:scale-95"
-                              >
-                                Suspender
-                              </button>
-                            )}
-                            {t.subscription_status !== 'canceled' && (
-                              <button
-                                onClick={() => handleOpenStatusModal(t, 'canceled')}
-                                className="px-2.5 py-1.5 text-[0.7rem] font-semibold rounded-md border-none cursor-pointer transition-all duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] text-white bg-error hover:bg-[#d83f3f] active:scale-95"
-                              >
-                                Bloquear
-                              </button>
-                            )}
-                          </div>
+                          <button
+                            onClick={() => setTenantAberto(t.tenant_id)}
+                            className="px-3 py-1.5 text-xs font-semibold rounded-md border border-border bg-transparent text-text-primary cursor-pointer transition-all duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] hover:border-brand-primary hover:text-brand-primary active:scale-95"
+                          >
+                            Detalhes
+                          </button>
                         </td>
                       </tr>
                     ))}
@@ -354,63 +307,8 @@ export const Tenants: React.FC = () => {
         </main>
       </div>
 
-      {/* CONFIRMATION MODAL */}
-      <Modal
-        isOpen={isModalOpen}
-        onClose={() => {
-          setIsModalOpen(false);
-          setSelectedTenant(null);
-        }}
-        title="Alterar assinatura"
-      >
-        {selectedTenant && (
-          <div className="flex flex-col items-center gap-5 text-center">
-            <div className="flex items-center justify-center w-14 h-14 rounded-full bg-warning-bg text-warning">
-              <WarningIcon size={24} />
-            </div>
-
-            <p className="text-sm text-text-primary leading-normal m-0">
-              Deseja alterar o status de <strong>{selectedTenant.tenant_name}</strong> para{' '}
-              <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold capitalize mx-1.5 ${STATUS_BADGE_CLASSES[newStatus]}`}>
-                {rotuloDaSituacao(newStatus)}
-              </span>?
-            </p>
-
-            <div className="bg-bg-primary border border-dashed border-border rounded-md p-4 text-xs text-text-secondary text-left leading-relaxed w-full">
-              {newStatus === 'blocked' && (
-                <p><WarningIcon size={16} className="inline-block align-middle mr-1.5" /><strong>Atenção:</strong> O gerente e os barbeiros passam a ver só a tela de bloqueio do painel.</p>
-              )}
-              {newStatus === 'canceled' && (
-                <p><ErrorIcon size={16} className="inline-block align-middle mr-1.5" /><strong>Importante:</strong> Sem período pago em andamento, o gerente e os barbeiros passam a ver só a tela de bloqueio do painel.</p>
-              )}
-              {newStatus === 'courtesy' && (
-                <p><SuccessIcon size={16} className="inline-block align-middle mr-1.5" />A barbearia passa a ter acesso liberado, sem cobrança e sem data de fim (cortesia). Para encerrar, use Suspender ou Bloquear.</p>
-              )}
-            </div>
-
-            <div className="flex justify-end gap-3 w-full mt-2">
-              <button
-                onClick={() => {
-                  setIsModalOpen(false);
-                  setSelectedTenant(null);
-                }}
-                className="btn border border-border bg-transparent text-text-primary hover:bg-bg-primary"
-                disabled={actionLoading}
-              >
-                Cancelar
-              </button>
-
-              <button
-                onClick={handleUpdateStatus}
-                className={`btn btn--primary ${newStatus === 'courtesy' ? 'bg-success' : 'bg-error'}`}
-                disabled={actionLoading}
-              >
-                {actionLoading ? 'Processando…' : 'Confirmar alteração'}
-              </button>
-            </div>
-          </div>
-        )}
-      </Modal>
+      {/* VISÃO DE DETALHE: a assinatura da barbearia e as ações do Proprietário (cada uma com confirmação) */}
+      <DetalhesDoTenant tenantId={tenantAberto} aoFechar={() => setTenantAberto(null)} aoMudar={fetchTenants} />
 
     </>
   );
