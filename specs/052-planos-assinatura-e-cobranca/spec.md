@@ -247,7 +247,7 @@ O limite passa a valer no banco. Conta profissional ativo (não excluído). O Ge
 ### Exportação de dados
 
 - A tela de bloqueio e a tela Assinatura oferecem "Exportar dados".
-- O arquivo reúne, em CSV, os clientes, os agendamentos e as comandas do tenant, lidos com as permissões do próprio Gerente. (Ticket 14: são três CSV, um para cada, baixados em sequência, no formato dos relatórios; ver o doc do ticket.)
+- O arquivo reúne, em CSV, os clientes, os agendamentos e as comandas do tenant, lidos com as permissões do próprio Gerente. (Ticket 14: são três CSV, um para cada, baixados em sequência, no formato dos relatórios, e cada exportação deixa uma linha na trilha de auditoria; ver o doc do ticket.)
 
 ### Proprietário
 
