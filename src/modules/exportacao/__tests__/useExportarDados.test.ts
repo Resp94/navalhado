@@ -32,7 +32,7 @@ describe('useExportarDados', () => {
       await result.current.exportar();
     });
 
-    expect(mockGerarArquivos).toHaveBeenCalledWith('tenant-1', 'America/Manaus');
+    expect(mockGerarArquivos).toHaveBeenCalledWith('tenant-1', 'America/Manaus', { sinal: expect.any(AbortSignal) });
     expect(mockBaixarCsv.mock.calls).toEqual([
       ['clientes_2026-10-01.csv', 'a'],
       ['agendamentos_2026-10-01.csv', 'b'],
@@ -49,7 +49,68 @@ describe('useExportarDados', () => {
       await result.current.exportar();
     });
 
-    expect(mockGerarArquivos).toHaveBeenCalledWith('tenant-1', 'America/Sao_Paulo');
+    expect(mockGerarArquivos).toHaveBeenCalledWith('tenant-1', 'America/Sao_Paulo', { sinal: expect.any(AbortSignal) });
+  });
+
+  // O navegador pode barrar o 2º e o 3º download sem avisar a página (ele pergunta uma vez se o site pode baixar vários arquivos):
+  // por isso a tela confirma o que foi baixado e diz o que fazer se faltar algum.
+  it('só depois do último download diz que concluiu', async () => {
+    let terminar: (arquivos: typeof ARQUIVOS) => void = () => {};
+    mockGerarArquivos.mockReturnValue(new Promise((resolve) => (terminar = resolve)));
+    const { result } = renderHook(() => useExportarDados('tenant-1', 'America/Manaus', 0));
+    expect(result.current.concluido).toBe(false);
+
+    act(() => {
+      void result.current.exportar();
+    });
+    await waitFor(() => expect(result.current.exportando).toBe(true));
+    expect(result.current.concluido).toBe(false);
+
+    await act(async () => {
+      terminar(ARQUIVOS);
+    });
+    await waitFor(() => expect(result.current.exportando).toBe(false));
+    expect(result.current.concluido).toBe(true);
+  });
+
+  it('uma exportação que falha não conclui, e uma nova esquece a conclusão da anterior', async () => {
+    mockGerarArquivos.mockResolvedValueOnce(ARQUIVOS).mockRejectedValueOnce(new Error('falhou'));
+    const { result } = renderHook(() => useExportarDados('tenant-1', 'America/Manaus', 0));
+
+    await act(async () => {
+      await result.current.exportar();
+    });
+    expect(result.current.concluido).toBe(true);
+
+    await act(async () => {
+      await result.current.exportar();
+    });
+    expect(result.current.concluido).toBe(false);
+    expect(result.current.erro).not.toBeNull();
+  });
+
+  it('quem sai da tela no meio da leitura a cancela: o sinal é cancelado e nada é baixado', async () => {
+    let terminar: (arquivos: typeof ARQUIVOS) => void = () => {};
+    let sinal: AbortSignal | undefined;
+    mockGerarArquivos.mockImplementation((_tenantId: string, _fuso: string, opcoes: { sinal: AbortSignal }) => {
+      sinal = opcoes.sinal;
+      return new Promise((resolve) => (terminar = resolve));
+    });
+    const { result, unmount } = renderHook(() => useExportarDados('tenant-1', 'America/Manaus', 0));
+
+    act(() => {
+      void result.current.exportar();
+    });
+    await waitFor(() => expect(sinal).toBeDefined());
+    expect(sinal?.aborted).toBe(false);
+
+    unmount();
+    expect(sinal?.aborted).toBe(true);
+
+    await act(async () => {
+      terminar(ARQUIVOS);
+    });
+    expect(mockBaixarCsv).not.toHaveBeenCalled();
   });
 
   it('fica exportando enquanto lê os dados e volta ao normal depois', async () => {

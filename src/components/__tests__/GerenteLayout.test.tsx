@@ -293,7 +293,7 @@ describe('GerenteLayout Gatekeeper', () => {
       await userEvent.click(await screen.findByRole('button', { name: 'Exportar dados' }));
 
       await waitFor(() => expect(mockBaixarCsv).toHaveBeenCalledWith('clientes_2026-10-01.csv', 'conteudo'));
-      expect(mockGerarArquivos).toHaveBeenCalledWith('tenant-123', 'America/Manaus');
+      expect(mockGerarArquivos).toHaveBeenCalledWith('tenant-123', 'America/Manaus', { sinal: expect.any(AbortSignal) });
     });
 
     // Spec 052, ticket 05: o Mercado Pago devolve o Gerente em /configuracoes?assinatura=retorno.

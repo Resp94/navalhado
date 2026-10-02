@@ -2,6 +2,7 @@ import type {
   AgendamentoParaExportar,
   ClienteParaExportar,
   ComandaParaExportar,
+  DetalhesDaExportacao,
   IExportacaoAdapter,
   ItemDeComandaParaExportar,
   NomeParaExportar,
@@ -24,6 +25,8 @@ export interface DadosEmMemoria {
 
 export class InMemoryExportacaoAdapter implements IExportacaoAdapter {
   private readonly dados: DadosEmMemoria;
+  /** O que foi para a trilha de auditoria, na ordem. */
+  readonly registros: DetalhesDaExportacao[] = [];
 
   constructor(dados: DadosEmMemoria = {}) {
     this.dados = dados;
@@ -65,5 +68,9 @@ export class InMemoryExportacaoAdapter implements IExportacaoAdapter {
 
   async listarProdutos(tenantId: string) {
     return this.do(this.dados.produtos, tenantId);
+  }
+
+  async registrarExportacao(detalhes: DetalhesDaExportacao) {
+    this.registros.push(detalhes);
   }
 }
