@@ -2,14 +2,29 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { GerenteLayout } from '../GerenteLayout';
+import { VERSAO_ATUAL_DOS_TERMOS } from '../../modules/termos/textos';
 
-const { mockAddToast, mockNavigate, mockUseLocation, mockRpc, mockGerarArquivos, mockBaixarCsv, contextosDoOutlet } = vi.hoisted(() => ({
+const {
+  mockAddToast,
+  mockNavigate,
+  mockUseLocation,
+  mockRpc,
+  mockGerarArquivos,
+  mockBaixarCsv,
+  mockJaAceitouTermos,
+  mockAceitarTermos,
+  mockSignOut,
+  contextosDoOutlet,
+} = vi.hoisted(() => ({
   mockAddToast: vi.fn(),
   mockNavigate: vi.fn(),
   mockUseLocation: vi.fn().mockReturnValue({ pathname: '/agenda' }),
   mockRpc: vi.fn(),
   mockGerarArquivos: vi.fn(),
   mockBaixarCsv: vi.fn(),
+  mockJaAceitouTermos: vi.fn(),
+  mockAceitarTermos: vi.fn(),
+  mockSignOut: vi.fn(),
   // Cada contexto que o layout entregou ao Outlet, na ordem: dá para conferir a identidade do objeto e usar as funções dele.
   contextosDoOutlet: [] as any[],
 }));
@@ -63,6 +78,14 @@ vi.mock('../../modules/exportacao/repositorio', () => ({
 }));
 vi.mock('../../modules/relatorios/csv', () => ({ baixarCsv: (...args: unknown[]) => mockBaixarCsv(...args) }));
 
+// A leitura e a gravação do aceite têm teste próprio (módulo termos); aqui só interessa o que o layout faz com a situação do aceite.
+vi.mock('../../modules/termos/repositorio', () => ({
+  termosRepository: {
+    jaAceitou: (...args: unknown[]) => mockJaAceitouTermos(...args),
+    aceitar: (...args: unknown[]) => mockAceitarTermos(...args),
+  },
+}));
+
 const mockGetUser = vi.fn();
 const mockFrom = vi.fn();
 
@@ -70,6 +93,7 @@ vi.mock('../../lib/supabase', () => ({
   supabase: {
     auth: {
       getUser: () => mockGetUser(),
+      signOut: () => mockSignOut(),
     },
     from: (table: string) => mockFrom(table),
     rpc: (...args: unknown[]) => mockRpc(...args),
@@ -91,6 +115,10 @@ describe('GerenteLayout Gatekeeper', () => {
       error: null,
     });
     mockRpc.mockResolvedValue({ data: [{ access: 'allowed', reason: 'active', relevant_date: null }], error: null });
+    // Por padrão o Gerente já aceitou a versão atual dos termos: os testes do aceite (spec 052, ticket 16) mudam isto.
+    mockJaAceitouTermos.mockResolvedValue(true);
+    mockAceitarTermos.mockResolvedValue(undefined);
+    mockSignOut.mockResolvedValue({ error: null });
   });
 
   it('redireciona para /onboarding quando onboarding_completed for false e rota for /agenda', async () => {
@@ -504,6 +532,144 @@ describe('GerenteLayout Gatekeeper', () => {
       render(<GerenteLayout />);
 
       await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/onboarding'));
+    });
+
+    // Spec 052, ticket 16: o Gerente que não aceitou a versão atual dos Termos de Uso e da Política de Privacidade vê o aceite antes
+    // do painel. O aceite vem antes até da tela de bloqueio: quem vai pagar a assinatura está contratando. O aceite é do front (o
+    // banco só o guarda), então a falha de leitura não fecha o painel.
+    describe('aceite dos Termos de Uso', () => {
+      const TITULO_DO_ACEITE = 'Termos de Uso e Política de Privacidade';
+
+      const aceitarNaTela = async () => {
+        await userEvent.click(await screen.findByRole('checkbox', { name: /Li e aceito/ }));
+        await userEvent.click(screen.getByRole('button', { name: 'Aceitar e continuar' }));
+      };
+
+      it('sem o aceite da versão atual: mostra a tela de aceite e não mostra o painel', async () => {
+        painelDaBarbearia('/agenda');
+        estadoDoBanco('allowed', 'active');
+        mockJaAceitouTermos.mockResolvedValue(false);
+
+        render(<GerenteLayout />);
+
+        expect(await screen.findByRole('heading', { name: TITULO_DO_ACEITE })).toBeInTheDocument();
+        expect(screen.queryByTestId('outlet')).not.toBeInTheDocument();
+        expect(mockJaAceitouTermos).toHaveBeenCalledWith(VERSAO_ATUAL_DOS_TERMOS);
+      });
+
+      it('com o aceite da versão atual: abre o painel direto, sem a tela de aceite', async () => {
+        painelDaBarbearia('/agenda');
+        estadoDoBanco('allowed', 'active');
+
+        render(<GerenteLayout />);
+
+        expect(await screen.findByTestId('outlet')).toBeInTheDocument();
+        expect(screen.queryByRole('heading', { name: TITULO_DO_ACEITE })).not.toBeInTheDocument();
+      });
+
+      it('aceitar grava o aceite da versão atual e libera o painel, sem recarregar a página', async () => {
+        painelDaBarbearia('/agenda');
+        estadoDoBanco('allowed', 'active');
+        mockJaAceitouTermos.mockResolvedValue(false);
+        render(<GerenteLayout />);
+
+        await aceitarNaTela();
+
+        expect(mockAceitarTermos).toHaveBeenCalledWith(VERSAO_ATUAL_DOS_TERMOS);
+        expect(await screen.findByTestId('outlet')).toBeInTheDocument();
+        expect(screen.queryByRole('heading', { name: TITULO_DO_ACEITE })).not.toBeInTheDocument();
+      });
+
+      it('se gravar o aceite falha, a tela mostra o erro e o painel continua fechado', async () => {
+        painelDaBarbearia('/agenda');
+        estadoDoBanco('allowed', 'active');
+        mockJaAceitouTermos.mockResolvedValue(false);
+        mockAceitarTermos.mockRejectedValue(new Error('Não foi possível registrar o seu aceite. Tente de novo.'));
+        const erro = vi.spyOn(console, 'error').mockImplementation(() => {});
+        render(<GerenteLayout />);
+
+        await aceitarNaTela();
+
+        expect(await screen.findByRole('alert')).toHaveTextContent('Não foi possível registrar o seu aceite. Tente de novo.');
+        expect(screen.queryByTestId('outlet')).not.toBeInTheDocument();
+        erro.mockRestore();
+      });
+
+      // Quem vai pagar está contratando: o aceite vem antes da tela de bloqueio (e do "Pagar" dela).
+      it('bloqueado e sem o aceite: o aceite vem antes da tela de bloqueio, e aceitar leva a ela', async () => {
+        painelDaBarbearia('/agenda');
+        estadoDoBanco('blocked', 'trial_expired', '2026-09-29T12:00:00Z');
+        mockJaAceitouTermos.mockResolvedValue(false);
+        render(<GerenteLayout />);
+
+        expect(await screen.findByRole('heading', { name: TITULO_DO_ACEITE })).toBeInTheDocument();
+        expect(screen.queryByRole('heading', { name: 'Seu período de teste terminou' })).not.toBeInTheDocument();
+        expect(screen.queryByRole('button', { name: 'Pagar' })).not.toBeInTheDocument();
+
+        await aceitarNaTela();
+
+        expect(await screen.findByRole('heading', { name: 'Seu período de teste terminou' })).toBeInTheDocument();
+      });
+
+      it('o aceite vem antes do onboarding', async () => {
+        painelDaBarbearia('/onboarding', false);
+        estadoDoBanco('allowed', 'trial');
+        mockJaAceitouTermos.mockResolvedValue(false);
+
+        render(<GerenteLayout />);
+
+        expect(await screen.findByRole('heading', { name: TITULO_DO_ACEITE })).toBeInTheDocument();
+        expect(screen.queryByTestId('outlet')).not.toBeInTheDocument();
+      });
+
+      it('enquanto a leitura do aceite não chega, não mostra o painel para depois trocar pela tela de aceite', async () => {
+        painelDaBarbearia('/agenda');
+        estadoDoBanco('allowed', 'active');
+        mockJaAceitouTermos.mockReturnValue(new Promise(() => {}));
+
+        render(<GerenteLayout />);
+
+        await waitFor(() => expect(mockJaAceitouTermos).toHaveBeenCalled());
+        expect(screen.queryByTestId('outlet')).not.toBeInTheDocument();
+        expect(screen.queryByRole('heading', { name: TITULO_DO_ACEITE })).not.toBeInTheDocument();
+      });
+
+      it('se a leitura do aceite falha, o painel abre: o aceite não fecha ninguém por falha de rede', async () => {
+        painelDaBarbearia('/agenda');
+        estadoDoBanco('allowed', 'active');
+        mockJaAceitouTermos.mockRejectedValue(new Error('sem rede'));
+        const erro = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+        render(<GerenteLayout />);
+
+        expect(await screen.findByTestId('outlet')).toBeInTheDocument();
+        expect(screen.queryByRole('heading', { name: TITULO_DO_ACEITE })).not.toBeInTheDocument();
+        erro.mockRestore();
+      });
+
+      it('lê o aceite em paralelo com os dados da barbearia, sem esperar por eles', async () => {
+        // A consulta do perfil nunca responde: se a leitura do aceite esperasse pela barbearia, ela não aconteceria.
+        mockFrom.mockImplementation(() => ({
+          select: () => ({ eq: () => ({ single: () => new Promise(() => {}) }) }),
+        }));
+        estadoDoBanco('allowed', 'active');
+
+        render(<GerenteLayout />);
+
+        await waitFor(() => expect(mockJaAceitouTermos).toHaveBeenCalledTimes(1));
+      });
+
+      it('na tela de aceite o Gerente consegue sair da conta', async () => {
+        painelDaBarbearia('/agenda');
+        estadoDoBanco('allowed', 'active');
+        mockJaAceitouTermos.mockResolvedValue(false);
+        render(<GerenteLayout />);
+
+        await userEvent.click(await screen.findByRole('button', { name: 'Sair da conta' }));
+
+        await waitFor(() => expect(mockSignOut).toHaveBeenCalledTimes(1));
+        expect(mockNavigate).toHaveBeenCalledWith('/');
+      });
     });
   });
 });

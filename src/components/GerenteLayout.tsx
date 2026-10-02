@@ -8,8 +8,10 @@ import { GlassSidebar } from './GlassSidebar';
 import { GERENTE_NAV_ITEMS } from './gerenteNavItems';
 import { TelaDeBloqueio } from './acesso/TelaDeBloqueio';
 import { FaixaDeAviso } from './acesso/FaixaDeAviso';
+import { TelaDeAceiteDosTermos } from './termos/TelaDeAceiteDosTermos';
 import { useEstadoDeAcesso } from '../modules/assinatura/useEstadoDeAcesso';
 import { useRetornoDoPagamento } from '../modules/assinatura/useRetornoDoPagamento';
+import { useAceiteDosTermos } from '../modules/termos/useAceiteDosTermos';
 
 // Interface do Contexto do Tenant a ser compartilhado com as sub-telas
 export interface TenantContextType {
@@ -66,6 +68,13 @@ export const GerenteLayout: React.FC = () => {
     estadoDeAcesso?.acesso === 'bloqueado',
     recarregarEstadoDeAcesso,
   );
+  // Porteiro: o aceite da versão atual dos Termos de Uso (spec 052, ticket 16), lido em paralelo com o resto.
+  const {
+    situacao: situacaoDoAceite,
+    aceitar: aceitarOsTermos,
+    aceitando: aceitandoOsTermos,
+    erro: erroDoAceite,
+  } = useAceiteDosTermos();
 
   const fetchTenantData = React.useCallback(async () => {
     try {
@@ -194,7 +203,7 @@ export const GerenteLayout: React.FC = () => {
     [tenantInfo, recarregarEstadoDeAcesso],
   );
 
-  if (loading || !tenantInfo || statusDoAcesso === 'loading') {
+  if (loading || !tenantInfo || statusDoAcesso === 'loading' || situacaoDoAceite === 'carregando') {
     return (
       <>
         <div className="noise-overlay" />
@@ -208,6 +217,20 @@ export const GerenteLayout: React.FC = () => {
           <div className="h-[350px] mt-8 rounded-md bg-[linear-gradient(90deg,var(--color-bg-secondary)_25%,var(--color-border)_37%,var(--color-bg-secondary)_63%)] bg-[length:400%_100%] animate-shimmer" />
         </div>
       </>
+    );
+  }
+
+  // Sem o aceite da versão atual dos Termos de Uso e da Política de Privacidade: só a tela de aceite, antes do painel, do
+  // onboarding e até da tela de bloqueio (quem vai pagar a assinatura está contratando). Se a leitura do aceite falhou, o painel
+  // abre: o aceite é do front, e travar todo mundo por uma falha de rede seria pior.
+  if (situacaoDoAceite === 'pendente') {
+    return (
+      <TelaDeAceiteDosTermos
+        aceitando={aceitandoOsTermos}
+        erro={erroDoAceite}
+        onAceitar={aceitarOsTermos}
+        onLogout={handleLogout}
+      />
     );
   }
 
