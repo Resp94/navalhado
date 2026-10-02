@@ -52,7 +52,7 @@ Função: a confirmação pelo status, as três tentativas da remoção local, a
 
 **Não aplicados, por decisão do usuário:**
 - **Linha sem marca vinda de outro banco vira "deste ambiente"**: o gatilho e a migration carimbam o ambiente local em qualquer linha sem marca. Hoje não há cópia entre ambientes (a única linha do DEV nasceu no DEV), mas uma instância de prod copiada para o dev sem a coluna seria tratada como do dev. Alternativa: tirar o padrão do gatilho e carimbar na função que cria a instância, ou conferir a marca `adminField02` no provedor.
-- **"Suspender" do Proprietário grava `blocked_at` com o relógio do navegador** (`camposDaMudancaManual`, e o "Bloquear" grava `canceled_at` do mesmo jeito): um relógio 8 dias atrasado deixa a instância devida na mesma noite. O ticket 15 (ferramentas do Proprietário) deve mover o bloqueio manual para uma função do banco com `now()`.
+- **"Suspender" do Proprietário grava `blocked_at` com o relógio do navegador** (`camposDaMudancaManual`, e o "Bloquear" grava `canceled_at` do mesmo jeito): um relógio 8 dias atrasado deixa a instância devida na mesma noite. O ticket 15 (ferramentas do Proprietário) deve mover o bloqueio manual para uma função do banco com `now()`. **Feito no ticket 15:** o bloqueio manual é `admin_block_tenant`, com o relógio do banco, e os botões "Suspender" e "Bloquear" interinos saíram.
 - **O texto do e-mail de bloqueio e das telas** ("tudo estará como você deixou", "Os dados da sua barbearia continuam guardados", "é só assinar de novo") não menciona que o WhatsApp é desconectado depois de 7 dias.
 
 ### Limitações
