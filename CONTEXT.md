@@ -54,7 +54,7 @@ Fato canônico que registra a criação confirmada, o cancelamento ou o reagenda
 _Avoid_: Notificação de agendamento, status do WhatsApp, trigger de agendamento
 
 **Instância WhatsApp**:
-Conexão lógica e física de um tenant com o WhatsApp, representada por `public.whatsapp_instances` e operada pelo adaptador Uazapi no backend. O estado observado pode ser `disconnected` (sem sessão), `connecting` (pareamento em andamento), `connected` (sessão autenticada) ou `hibernated` (sessão pausada, com credenciais preservadas). O gerenciamento é exclusivo do Gerente do tenant.
+Conexão lógica e física de um tenant com o WhatsApp, representada por `public.whatsapp_instances` e operada pelo adaptador Uazapi no backend. O estado observado pode ser `disconnected` (sem sessão), `connecting` (pareamento em andamento), `connected` (sessão autenticada) ou `hibernated` (sessão pausada, com credenciais preservadas). O gerenciamento é exclusivo do Gerente do tenant. O navegador lê e grava `public.whatsapp_instances` só pelas colunas liberadas uma a uma, nunca pela tabela inteira: o token da instância (`instance_token`), o vínculo com o provedor (`provider_instance_id`), o provedor (`provider`) e o ambiente (`environment`) ficam só no servidor. Coluna nova nasce fechada ao navegador; a migration que a cria concede `select` e `update` por coluna à tela, e um erro 42501 se corrige concedendo a coluna, nunca a tabela.
 _Avoid_: nome de provedor no domínio, estado de pareamento legado, token no frontend, instância compartilhada
 
 **Templates de Notificação WhatsApp**:

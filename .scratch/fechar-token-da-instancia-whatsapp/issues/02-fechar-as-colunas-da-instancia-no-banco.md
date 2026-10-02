@@ -5,7 +5,7 @@ Parte da spec 053 (Fechar o token da Instância WhatsApp no navegador).
 **What to build:** o navegador deixa de ler e de regravar o token da instância e as colunas que o backend trata como verdade, sem nenhuma mudança na tela. Um teste de guarda com a lista exata de colunas impede que o GRANT de tabela volte.
 
 - **Migration** `053_ticket02_fechar_colunas_da_instancia_whatsapp`, aplicada no DEV (`selvxobcjbkligxighlp`) por `apply_migration`. O SQL é o da seção "Migration de fechamento" da spec: `revoke all on table public.whatsapp_instances from anon, authenticated`, depois `grant select (...)` nas 20 colunas da tela e `grant update (...)` nas 18 (as 16 de configuração mais `status` e `qr_code`, que a tela ainda grava até o ticket 04). O cabeçalho da migration explica o porquê (as migrations 036 e 051 concederam a tabela), cita o idioma da 044 e registra a convenção: coluna nova nasce fechada, a tela a abre com `grant select (coluna)` e `grant update (coluna)` na mesma migration, e um erro 42501 se corrige concedendo a coluna, nunca a tabela. O arquivo local leva a versão que o `apply_migration` registrar (consultar `supabase_migrations.schema_migrations` por `execute_sql`; `list_migrations` despeja o histórico inteiro).
-- **pgTAP 76** (`76_colunas_da_instancia_whatsapp_no_navegador.test.sql`; o 75 é do ticket 13, na branch dele), escrito antes da migration e visto falhar:
+- **pgTAP 77** (`77_colunas_da_instancia_whatsapp_no_navegador.test.sql`; o 75 é do ticket 13), escrito antes da migration e visto falhar:
   - nenhum privilégio de tabela para `authenticated` (SELECT, INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER) e nenhuma coluna com qualquer privilégio para `anon`
   - o conjunto de colunas com SELECT para `authenticated` é exatamente as 20 do contrato, e o de UPDATE exatamente as 18 (`set_eq` contra o catálogo, que pega coluna aberta a mais e coluna esquecida); nenhuma coluna com INSERT
   - asserção nominal, com mensagem que diz o que fazer, de que `instance_token`, `provider_instance_id`, `provider` e `environment` não têm SELECT nem UPDATE (a de `environment` passa vazia onde a coluna não existe)
@@ -20,16 +20,44 @@ Parte da spec 053 (Fechar o token da Instância WhatsApp no navegador).
 - **Documentação.** O termo Instância WhatsApp do `CONTEXT.md` ganha o contrato (o navegador lê e grava só as colunas liberadas uma a uma, nunca por tabela; coluna nova nasce fechada). Os dois comentários de `docs/modelagem_banco.md` sobre os grants de `whatsapp_instances` passam a listar o contrato.
 - **Roteiro manual no DEV** (o usuário digita a senha do Gerente): a tela do WhatsApp carrega; ligar e desligar um envio e recarregar mostra o valor salvo; salvar um modelo; "Gerar QR Code de Conexão" mostra o QR; uma segunda aba recebe a mudança em tempo real; nos quadros do WebSocket do navegador não aparecem `instance_token` nem `environment`; como Proprietário, Admin > Tenants mostra o status do WhatsApp. Usar a instância de teste do DEV sem agendamento ativo, para nenhuma mensagem real sair.
 
-**Blocked by:** 01 (Testes pgTAP legados da Instância WhatsApp voltam a rodar)
+**Blocked by:** 01 (Testes pgTAP legados da Instância WhatsApp voltam a rodar), feito
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] pgTAP 76 escrito antes da migration e visto falhar no DEV (lista, token, Gerente com `tenant_id` nulo)
-- [ ] Migration aplicada no DEV; `has_column_privilege` por coluna igual ao contrato (20 de leitura, 18 de escrita, nenhum privilégio de tabela para `authenticated` e `anon`)
-- [ ] pgTAP 76 passa
-- [ ] `whatsapp_neutral_persistence.test.sql` passa inteiro (45/45) e a asserção 7 de `security_hardening.test.sql` passa (a 12 segue como o achado antigo)
-- [ ] O pgTAP 75, do ticket 13, rodado a partir do arquivo da branch dele, continua passando
-- [ ] `get_advisors` de segurança no DEV sem alerta novo em relação a antes da migration
-- [ ] Roteiro manual no DEV feito e registrado
-- [ ] `CONTEXT.md` e `docs/modelagem_banco.md` atualizados
-- [ ] `npm run lint`, `npm test` e `npm run build` passam (nenhum código de tela muda neste ticket)
+- [x] pgTAP 77 escrito antes da migration e visto falhar no DEV (lista, token, Gerente com `tenant_id` nulo): 17 das 34 asserções falharam; as outras 17 são guardas do que não pode quebrar
+- [x] Migration aplicada no DEV (versão `20261002160717`); `has_column_privilege` por coluna igual ao contrato (20 de leitura, 18 de escrita, nenhum privilégio de tabela para `authenticated` e `anon`)
+- [x] pgTAP 77 passa (34/34)
+- [x] `whatsapp_neutral_persistence.test.sql` passa inteiro (45/45) e a asserção 7 de `security_hardening.test.sql` passa (a 12 segue como o achado antigo): `security_hardening` 11/12, `whatsapp_balcao_outbox` 12/12
+- [x] O pgTAP 75, do ticket 13, continua passando (37/37 antes e depois da migration)
+- [x] `get_advisors` de segurança no DEV sem alerta novo em relação a antes da migration (44 antes e 44 depois, nenhum novo e nenhum a menos)
+- [x] Roteiro manual no DEV feito e registrado (Admin > Tenants como Proprietário não foi exercitado; a view está no pgTAP 77)
+- [x] `CONTEXT.md` e `docs/modelagem_banco.md` atualizados
+- [x] `npm run lint`, `npm test` e `npm run build` passam (nenhum código de tela muda neste ticket): lint e build com exit 0; vitest 144 arquivos e 1944 testes passaram
+
+## Resultado (2026-10-02)
+
+**Migration.** Aplicada no DEV por `apply_migration` com o nome `053_ticket02_fechar_colunas_da_instancia_whatsapp`; o `schema_migrations` registrou a versão `20261002160717`. O arquivo local (`supabase/migrations/20261002160717_053_ticket02_fechar_colunas_da_instancia_whatsapp.sql`) tem o mesmo SQL do aplicado (conferido por md5 do texto sem espaços nem `;`, `a84221d1…`, 2746 caracteres, na hora de aplicar). Depois disso o teste de guarda foi renumerado de 76 para 77, porque o ticket 14 da spec 052 entrou em `dev` com o pgTAP 76 dele, e o comentário do cabeçalho do arquivo passou a citar o 77; o texto registrado no DEV ainda cita o 76. É só comentário: o SQL é o mesmo. O SQL é o da spec. O cabeçalho explica a causa (as migrations 036 e 051), o idioma da 044, os contratos de leitura e de escrita, o passo 2 e a convenção de coluna nova.
+
+**ACL depois da migration (DEV).** `relacl` passou de `{postgres=arwdDxtm/postgres,service_role=arwdDxtm/postgres,authenticated=rw/postgres}` para `{postgres=arwdDxtm/postgres,service_role=arwdDxtm/postgres}`. Das 26 colunas, `authenticated` lê as 20 do contrato e grava as 18, nenhuma coluna aceita INSERT, e `anon` não tem nada.
+
+**pgTAP 77 (34 asserções).** Escrito antes da migration e rodado no DEV: 17 de 34 falharam, todas por causa da exposição, e as 17 que passavam são as guardas do que não pode quebrar (leitura e escrita da tela, Gerente de tenant nulo e Barbeiro sem linhas, a view do Proprietário e o `anon`). A primeira rodada tinha 16 falhas: as asserções de `tenant_id` e `id` com `set ... = null` passavam por outro motivo (a policy `WITH CHECK` devolve 42501 antes do privilégio de coluna) ou falhavam por NOT NULL (23502). Passaram a atribuir a própria coluna (`set tenant_id = tenant_id`), que sem o fechamento roda sem erro. Depois da migration, 34/34. A lista do contrato fica numa tabela temporária do teste, que gera os comandos de 20 colunas e as duas comparações por conjunto (`set_eq` contra `pg_attribute` e `has_column_privilege`); o auxiliar `pg_temp.tenta` devolve `ok:<linhas>` ou o SQLSTATE sem abortar a transação. Para o ticket 04, `grava` vira false em `status` e `qr_code`, o conjunto de UPDATE passa a 16 e a asserção que grava as duas colunas passa a esperar 42501.
+
+**Regressões.** `whatsapp_neutral_persistence` 45/45 (as asserções 25 e 26, de token, passaram a passar; antes do fechamento eram 43/45), `whatsapp_balcao_outbox` 12/12, `security_hardening` 11/12 (a 7, do token, passa; a 12, de `comanda_pagamentos`, segue como o achado antigo, fora desta spec) e pgTAP 75 (ticket 13) 37/37 antes e depois.
+
+**Advisors.** `get_advisors` de segurança no DEV: 44 alertas antes e 44 depois, nenhum novo e nenhum a menos.
+
+**Realtime, provado por simulação.** As ferramentas deste ambiente não leem os quadros do WebSocket, então a `realtime.apply_rls` (a função que o servidor do Realtime executa a cada evento) foi chamada no DEV, em transação com rollback, com uma assinatura do Gerente do tenant de teste (filtro `tenant_id`), outra de um Barbeiro e um evento de UPDATE da instância. O Gerente recebe o evento (a chave primária é legível e o RLS passa) e o Barbeiro não. O `record` e o `old_record` levam só colunas liberadas: `id`, `tenant_id`, `instance_name`, `qr_code`, `status` e `reminder_hours` entre as 12 enviadas, sem `instance_token`, `provider`, `provider_instance_id`, `environment`, `created_at` e `updated_at`. A lista `columns` do evento traz exatamente as 20 do contrato, e não há erro 401 nem 400. Nenhum valor de token foi lido ou exibido, só nomes de chave. A rodada deixou o banco limpo (nenhum tenant, usuário, instância ou assinatura de teste sobrou).
+
+**Gates.** `npm run lint` (exit 0, só os avisos antigos), `npm run build` (exit 0) e o vitest completo (144 arquivos e 1944 testes passaram, 216 s), rodados na `dev` integrada com esta branch. Nenhum arquivo de tela mudou neste ticket.
+
+**Roteiro manual no DEV (2026-10-02, com o login do Gerente de teste feito pelo usuário).** A tela deste worktree foi servida por um Vite na porta 3000 (a 5173 costuma estar com o dev server do checkout principal, e o CORS da função só aceita 5173 e 3000), lendo o `.env` do checkout principal por `envDir`. O servidor, o config temporário e a entrada do `launch.json` foram removidos depois. O banco de teste terminou como começou: flags, tempo do lembrete, modelo e palavras-chave com o mesmo `md5`, e a instância `disconnected` sem QR.
+
+- A tela carrega com o status, o nome da instância e a configuração dos envios (a leitura das 20 colunas).
+- **Ligar e desligar um envio.** "Alerta de Cancelamento" desligado e a tela recarregada: a caixa segue desmarcada, ou seja, o valor foi salvo e lido de volta. Religado em seguida. O tempo do lembrete foi de 1 para 2 horas e voltou a 1.
+- **Salvar um modelo.** O modelo de confirmação ganhou um marcador de teste e foi salvo (banco: 188 para 200 caracteres). O marcador saiu, o modelo foi salvo de novo, e o `md5` do texto voltou ao de antes.
+- **Gerar QR Code de Conexão.** A tela mostra o cartão "Leia o QR Code abaixo" com o pill "PAREANDO", e os quadros do Realtime trazem `status` e `qr_code`.
+- **Quadros do WebSocket.** Um ouvinte na conexão da própria página (canal `realtime:whatsapp_instances:<tenant>`, `joined`) capturou os quadros brutos. Dos 12 quadros `postgres_changes` (UPDATE) inspecionados, os 12 trazem as 20 colunas do contrato no `record` (e no `old_record`, nos primeiros), e o texto de nenhum contém `instance_token`, `environment` nem `provider_instance_id`. Não abri uma segunda aba: o quadro chega à própria aba que escreveu.
+- **Logs do Supabase (`edge_logs`).** Os 10 pedidos do navegador a `whatsapp_instances` (4 GET e 6 PATCH) voltaram 200, e nenhum pediu `instance_token`, `environment` nem `select=*`.
+- **Admin > Tenants (Proprietário)** não foi exercitado, porque exigiria outro login. A view `view_tenants_management` está coberta pela asserção do Proprietário no pgTAP 77.
+
+**Achado vizinho, fora desta spec: cancelar o pareamento pode voltar a `connecting` por até 150 segundos.** Ao cancelar o pareamento (16:22:59), o `disconnect` gravou `disconnected` com QR nulo (16:23:00.5). Duas consultas de status que a tela já tinha em andamento gravaram `connecting` de volta (16:23:01.6); a janela de pareamento (`isRecentPairing`, 150 s) passou a ignorar os `disconnected` seguintes do provedor, e a tela seguiu mostrando o QR até a janela expirar. O banco voltou a `disconnected` sozinho às 16:25:34. A leitura do código e dos logs indica que o provedor ainda respondeu `connecting` logo depois do `disconnect`, e que as consultas gravaram esse estado pelo último ramo de `syncProviderStatus`, que grava o status do provedor quando o banco não está em `connecting`. Isso não vem deste ticket (a migration só mexe em privilégio do navegador, e a Edge Function usa `service_role`) nem do ticket 03 (o código do `status` e do `disconnect` não mudou; o `connect` ganhou só a pré-gravação). No roteiro do ticket 03, o mesmo cancelamento terminou direto em `disconnected`: a corrida depende de o provedor ainda responder `connecting` depois do `disconnect`. Se o usuário achar que o caso importa, vale uma spec própria (por exemplo: o `status` só promove o banco para `connecting` quando o banco já está em `connecting`, e a tela para de consultar depois de cancelar).

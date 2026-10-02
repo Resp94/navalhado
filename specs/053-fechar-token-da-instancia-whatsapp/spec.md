@@ -135,9 +135,9 @@ Por isso o contrato de leitura inclui `id` e `tenant_id`. O desenho por coluna j
 - `handleUpdateConfig` e `handleSaveTemplate` não mudam: os payloads (uma chave de configuração ou um modelo, mais `auto_reply_keywords` na aba de primeiro contato, mais `updated_at`) já cabem na lista de escrita.
 - A tela continua enviando `instance_id` e `instance_name` à Edge Function. A Edge Function usa o nome do corpo da requisição, não o da linha; isso fica registrado como achado vizinho, fora desta spec.
 
-### Teste de guarda (pgTAP 76)
+### Teste de guarda (pgTAP 77)
 
-Um arquivo novo, `76_colunas_da_instancia_whatsapp_no_navegador.test.sql` (o 75 é do ticket 13, na branch `feat/exclusao-da-instancia-whatsapp`), com a lista exata como fonte única:
+Um arquivo novo, `77_colunas_da_instancia_whatsapp_no_navegador.test.sql` (o 75 é do ticket 13 e o 76, do ticket 14, os dois da spec 052), com a lista exata como fonte única:
 
 - Nenhum privilégio de tabela para `authenticated` (SELECT, INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER) nem para `anon`.
 - O conjunto de colunas com SELECT para `authenticated` é exatamente as 20 do contrato (`set_eq` contra `pg_attribute` + `has_column_privilege`). O conjunto com UPDATE é exatamente as 18 (16 depois do ticket 04). Nenhuma coluna com INSERT. Nenhuma coluna com qualquer privilégio para `anon`. A comparação por conjunto pega os dois erros: coluna aberta a mais, e a que faltou abrir.
@@ -168,7 +168,7 @@ Um arquivo novo, `76_colunas_da_instancia_whatsapp_no_navegador.test.sql` (o 75 
 ### Ordem de entrega e promoção
 
 - No DEV: ticket 01, depois o 02 (passo 1). O 03 (tela e Edge Function) é independente do 02 e passa com os dois estados de GRANT. O 04 (passo 2) vem depois do 02 e do 03.
-- A ordem entre esta spec e a migration do ticket 13 (que cria `environment`) é indiferente: se `environment` nasce depois do fechamento, nasce fechada; se já existe, o fechamento a cobre. Hoje ela existe no DEV (aplicada por MCP) e a migration vive só na branch `feat/exclusao-da-instancia-whatsapp`.
+- A ordem entre esta spec e a migration do ticket 13 (que cria `environment`) é indiferente: se `environment` nasce depois do fechamento, nasce fechada; se já existe, o fechamento a cobre. A migration do ticket 13 está em `dev` (integrada em 2026-10-02) e a coluna existe no DEV; na PROD ela ainda não existe.
 - Na PROD: o passo 1 pode ir antes de qualquer outra coisa, porque a tela que está lá só lê e grava colunas da lista (conferido: `main` tem o mesmo `Whatsapp.tsx` e o mesmo `MobileMaisDrawer.tsx` do `dev`). O passo 2 só depois de a tela e a Edge Function novas estarem publicadas. Nada altera a PROD sem comando do usuário. A conferência de leitura já foi autorizada e feita em 2026-10-01.
 
 **Consulta de conferência** (só leitura; serve ao DEV antes e depois de cada migration e à PROD depois da autorização). Devolve uma linha por coluna e a ACL da tabela:
@@ -218,9 +218,9 @@ Hoje, no DEV, a primeira devolve `true` em `auth_select` e `auth_update` para as
   - A publicação `supabase_realtime` leva as 25 colunas, sem filtro de linha.
   - As funções `realtime.apply_rls`, `subscription_check_filters`, `build_prepared_statement_sql` e `is_visible_through_filters` têm o mesmo hash do DEV. A `apply_rls` de lá também usa `has_column_privilege` e tem o ramo 401 para chave primária sem SELECT.
   - Nenhuma função SQL, policy de outra tabela ou rotina agendada cita a tabela. Dependem dela só a view `view_tenants_management` (`security_invoker`, lendo `status` e `tenant_id`) e a chave estrangeira de `whatsapp_message_idempotency`.
-  - Há 2 instâncias. Não há a coluna `environment` nem as funções e a rotina do ticket 13, que ainda não estão em `dev` nem em `main`.
+  - Há 2 instâncias. Não há a coluna `environment` nem as funções e a rotina do ticket 13. Na data da consulta elas não estavam em `dev` nem em `main`; desde 2026-10-02 estão em `dev`, e ainda não em `main`.
   - A tela publicada (`main`) tem o mesmo `Whatsapp.tsx` e o mesmo `MobileMaisDrawer.tsx` do `dev`, com a mesma lista de leitura e as mesmas escritas.
-- **Numeração.** O pgTAP 76 existe só nesta spec porque o 75 é do ticket 13. Se o ticket 13 for renumerado, o teste de guarda acompanha a maior numeração existente.
+- **Numeração.** O teste de guarda é o pgTAP 77. Nasceu como 76 e foi renumerado quando o ticket 14 da spec 052 entrou em `dev` com o 76 dele (o 75 é do ticket 13, também em `dev`).
 - **Decisões que dependem do usuário.**
   1. Consultar a PROD (só leitura). Autorizada e feita em 2026-10-01; o resultado está acima. Confirmou a exposição e que a `apply_rls` de lá é a mesma do DEV.
   2. Seguir os dois passos (recomendado, porque entrega primeiro o que fecha a credencial sem mexer na tela) ou parar no passo 1 e deixar `status` e `qr_code` graváveis, como a 009 e a 023 deixavam.
