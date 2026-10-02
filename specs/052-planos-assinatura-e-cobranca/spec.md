@@ -259,6 +259,7 @@ O limite passa a valer no banco. Conta profissional ativo (não excluído). O Ge
 - As funções exigem o papel de Proprietário. Recusam Gerente, Barbeiro, anônimo e Gerente com `tenant_id` nulo.
 - A tela Admin > Tenants ganha a coluna de situação e uma visão de detalhe com essas ações.
 - Desbloquear e dar cortesia não criam nem alteram nada no Mercado Pago.
+- (Ticket 15: o desbloqueio é uma data em cima da assinatura (`unblocked_until`), e não uma situação nova; a lista dos avisos por e-mail que falharam, o bloqueio à mão (com a data do relógio do banco) e a leitura dos detalhes têm função própria; as datas valem até o fim do dia no fuso da barbearia; ver o doc do ticket.)
 
 ### Tenants existentes no lançamento
 
