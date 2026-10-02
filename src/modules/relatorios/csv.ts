@@ -26,18 +26,26 @@ const BOM = '﻿';
  * quebra de linha -- nesses casos aspas internas dobram (`"` vira `""`),
  * regra padrão de CSV (RFC 4180).
  *
- * Um campo começando com `=`, `+`, `-` ou `@` também recebe um apóstrofo na
- * frente: sem isso, Excel e LibreOffice abrem o valor como fórmula, não como
- * texto. Nome de profissional e de fornecedor são texto livre e podem
- * começar com qualquer caractere -- essa injeção de fórmula em CSV é um
- * risco conhecido (CWE-1236), não uma hipótese.
+ * Um campo começando com `=`, `+`, `-`, `@`, tab ou retorno de carro também
+ * recebe um apóstrofo na frente: sem isso, Excel e LibreOffice abrem o valor
+ * como fórmula, não como texto. Nome de profissional e de fornecedor são
+ * texto livre e podem começar com qualquer caractere -- essa injeção de
+ * fórmula em CSV é um risco conhecido (CWE-1236), não uma hipótese.
  */
 function escapeCsvField(valor: string): string {
-  const comApostrofo = /^[=+\-@]/.test(valor) ? `'${valor}` : valor;
+  const comApostrofo = /^[=+\-@\t\r]/.test(valor) ? `'${valor}` : valor;
   if (/[;"\r\n]/.test(comApostrofo)) {
     return `"${comApostrofo.replace(/"/g, '""')}"`;
   }
   return comApostrofo;
+}
+
+function cabecalhoCsv<T>(columns: CsvColumn<T>[]): string {
+  return columns.map((coluna) => escapeCsvField(coluna.header)).join(';');
+}
+
+function linhaCsv<T>(columns: CsvColumn<T>[], row: T): string {
+  return columns.map((coluna) => escapeCsvField(coluna.accessor(row))).join(';');
 }
 
 /**
@@ -45,9 +53,39 @@ function escapeCsvField(valor: string): string {
  * já com o BOM UTF-8 na frente, pronto para `baixarCsv`.
  */
 export function gerarCsv<T>(columns: CsvColumn<T>[], rows: T[]): string {
-  const cabecalho = columns.map((coluna) => escapeCsvField(coluna.header));
-  const linhas = rows.map((row) => columns.map((coluna) => escapeCsvField(coluna.accessor(row))));
-  return BOM + [cabecalho, ...linhas].map((linha) => linha.join(';')).join('\r\n');
+  return BOM + [cabecalhoCsv(columns), ...rows.map((row) => linhaCsv(columns, row))].join('\r\n');
+}
+
+const LINHAS_POR_BLOCO = 2000;
+
+const cederAThread = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
+
+export interface OpcoesDoCsvEmBlocos {
+  /** Quantas linhas se montam de uma vez antes de ceder a thread. */
+  linhasPorBloco?: number;
+  /** Para a montagem no próximo bloco quando o sinal é cancelado (quem pediu o CSV saiu da tela). */
+  sinal?: AbortSignal;
+}
+
+/**
+ * O mesmo CSV de `gerarCsv`, montado em blocos de linhas com a thread cedida entre eles: uma lista de dezenas de milhares de
+ * linhas montada de uma vez deixa a aba sem responder por segundos (a Exportação de Dados, spec 052, ticket 14).
+ */
+export async function gerarCsvEmBlocos<T>(
+  columns: CsvColumn<T>[],
+  rows: T[],
+  { linhasPorBloco = LINHAS_POR_BLOCO, sinal }: OpcoesDoCsvEmBlocos = {},
+): Promise<string> {
+  const cancelado = () => new Error('A montagem do CSV foi cancelada.');
+  if (sinal?.aborted) throw cancelado();
+
+  const partes = [cabecalhoCsv(columns)];
+  for (let inicio = 0; inicio < rows.length; inicio += linhasPorBloco) {
+    await cederAThread();
+    if (sinal?.aborted) throw cancelado();
+    for (const row of rows.slice(inicio, inicio + linhasPorBloco)) partes.push(linhaCsv(columns, row));
+  }
+  return BOM + partes.join('\r\n');
 }
 
 /**
