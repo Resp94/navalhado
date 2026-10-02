@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useId, useRef } from 'react';
 import { CloseIcon } from './Icons';
 
 interface ModalProps {
@@ -53,6 +53,37 @@ export const Modal: React.FC<ModalProps> = ({
     }
   }, [isOpen]);
 
+  // Acessibilidade (spec 052, ticket 16: o modal dos termos barra todo Gerente sem aceite): o diálogo se anuncia como tal, o foco entra
+  // nele ao abrir (se não estiver já num campo dele) e volta para quem o abriu ao fechar, e Escape fecha. O Escape ignora o que um
+  // componente de dentro já tratou (`defaultPrevented`, como os menus do Radix) e o que vem de fora do diálogo (menus em portal).
+  const dialogoRef = useRef<HTMLDivElement>(null);
+  const tituloId = useId();
+  const onCloseRef = useRef(onClose);
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  });
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const quemAbriu = document.activeElement as HTMLElement | null;
+    const dialogo = dialogoRef.current;
+    if (dialogo && !dialogo.contains(document.activeElement)) dialogo.focus({ preventScroll: true });
+
+    const aoApertarUmaTecla = (evento: KeyboardEvent) => {
+      if (evento.key !== 'Escape' || evento.defaultPrevented) return;
+      const alvo = evento.target as Node | null;
+      if (alvo && alvo !== document.body && !dialogo?.contains(alvo)) return;
+      onCloseRef.current();
+    };
+    document.addEventListener('keydown', aoApertarUmaTecla);
+
+    return () => {
+      document.removeEventListener('keydown', aoApertarUmaTecla);
+      if (quemAbriu && document.contains(quemAbriu)) quemAbriu.focus({ preventScroll: true });
+    };
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
   return (
@@ -62,14 +93,19 @@ export const Modal: React.FC<ModalProps> = ({
     >
       {/* Double-Bezel: outer shell */}
       <div
-        className="w-full max-w-[min(92vw,540px)] max-h-[calc(100dvh-2rem)] flex flex-col p-0 rounded-lg bg-transparent shadow-[0_16px_48px_-8px_rgba(20,17,15,0.28)] animate-[slideUp_0.25s_cubic-bezier(0.16,1,0.3,1)_both] box-border [touch-action:pan-y] [overscroll-behavior:contain] max-md:max-w-full max-md:max-h-[90dvh] max-md:rounded-t-[20px] max-md:p-0 max-md:m-0 max-md:bg-transparent max-md:shadow-[0_-10px_40px_rgba(0,0,0,0.4)] max-md:animate-[slideUpMobile_0.3s_cubic-bezier(0.16,1,0.3,1)_both]"
+        ref={dialogoRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={tituloId}
+        tabIndex={-1}
+        className="outline-none w-full max-w-[min(92vw,540px)] max-h-[calc(100dvh-2rem)] flex flex-col p-0 rounded-lg bg-transparent shadow-[0_16px_48px_-8px_rgba(20,17,15,0.28)] animate-[slideUp_0.25s_cubic-bezier(0.16,1,0.3,1)_both] box-border [touch-action:pan-y] [overscroll-behavior:contain] max-md:max-w-full max-md:max-h-[90dvh] max-md:rounded-t-[20px] max-md:p-0 max-md:m-0 max-md:bg-transparent max-md:shadow-[0_-10px_40px_rgba(0,0,0,0.4)] max-md:animate-[slideUpMobile_0.3s_cubic-bezier(0.16,1,0.3,1)_both]"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Inner core */}
         <div className="bg-bg-secondary rounded-lg w-full max-h-full min-w-0 box-border flex flex-col shadow-none overflow-hidden [touch-action:pan-y] [overscroll-behavior:contain] max-md:rounded-t-[20px] max-md:border-b-0 max-md:max-h-[90dvh] max-md:pb-[env(safe-area-inset-bottom,1rem)]">
           {/* Header */}
           <div className="flex justify-between items-center px-6 pt-5 pb-4 border-b border-text-primary shrink-0 select-none max-md:px-5 max-md:pt-[1.15rem] max-md:pb-[0.85rem]">
-            <h3 className="text-lg text-text-primary font-bold m-0">{title}</h3>
+            <h3 id={tituloId} className="text-lg text-text-primary font-bold m-0">{title}</h3>
             <button
               onClick={onClose}
               className="flex items-center justify-center min-w-11 min-h-11 rounded-full bg-none border-none cursor-pointer text-text-primary transition-all duration-[250ms] ease-[cubic-bezier(0.16,1,0.3,1)] outline-none hover:bg-error-bg hover:text-error focus-visible:shadow-[0_0_0_2px_var(--color-error)] active:scale-90"

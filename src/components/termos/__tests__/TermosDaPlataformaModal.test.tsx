@@ -36,6 +36,22 @@ describe('TermosDaPlataformaModal', () => {
     expect(screen.queryByRole('heading', { name: TERMOS_DE_USO.titulo })).not.toBeInTheDocument();
   });
 
+  it('é um diálogo com o nome do documento, e o texto, que rola, é uma região alcançável pelo teclado', () => {
+    render(<TermosDaPlataformaModal isOpen onClose={vi.fn()} documento="termos" />);
+
+    expect(screen.getByRole('dialog', { name: TERMOS_DE_USO.titulo })).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: TERMOS_DE_USO.titulo })).toHaveAttribute('tabindex', '0');
+  });
+
+  it('Escape fecha o modal dos textos', () => {
+    const onClose = vi.fn();
+    render(<TermosDaPlataformaModal isOpen onClose={onClose} documento="termos" />);
+
+    fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' });
+
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
   it('o botão Fechar chama onClose', () => {
     const onClose = vi.fn();
     render(<TermosDaPlataformaModal isOpen onClose={onClose} documento="termos" />);

@@ -9,7 +9,13 @@ interface TextoDosTermosProps {
 
 /** Um dos textos da plataforma (Termos de Uso ou Política de Privacidade), com a versão e todas as seções. */
 export const TextoDosTermos: React.FC<TextoDosTermosProps> = ({ texto }) => (
-  <div className="max-h-[60vh] overflow-y-auto pr-2 text-sm leading-[1.6] text-text-secondary">
+  // `tabIndex` e `role="region"`: a região que rola precisa ser alcançável pelo teclado (o Safari não a torna focável sozinha).
+  <div
+    role="region"
+    aria-label={texto.titulo}
+    tabIndex={0}
+    className="max-h-[60vh] overflow-y-auto pr-2 text-sm leading-[1.6] text-text-secondary"
+  >
     <p className="mt-0 text-xs">Versão de {formatDisplayDate(VERSAO_ATUAL_DOS_TERMOS)}</p>
     {texto.secoes.map((secao) => (
       <section key={secao.titulo}>
