@@ -60,6 +60,12 @@ export function mensagemDoAviso(estado: EstadoDeAcesso, dias: number | null, tim
     return `Assinatura cancelada.${acessoAte}`;
   }
 
+  // O desbloqueio manual (ticket 15) vale até o fim de um dia no fuso da barbearia: a data relevante é esse último instante.
+  if (estado.motivo === 'unblocked') {
+    const ate = estado.dataRelevante ? ` até ${dataCurta(estado.dataRelevante, timezone)}` : '';
+    return `Acesso liberado manualmente${ate}. Regularize a assinatura para não ter o acesso bloqueado.`;
+  }
+
   return contagem
     ? `Seu período de teste termina em ${contagem}.`
     : 'Seu período de teste está terminando.';

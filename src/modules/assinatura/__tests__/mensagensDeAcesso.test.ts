@@ -139,5 +139,29 @@ describe('mensagens de acesso', () => {
     it('cancelada sem a data do fim do acesso não inventa uma', () => {
       expect(mensagemDoAviso(aviso('canceled'), null)).toBe('Assinatura cancelada.');
     });
+
+    // Spec 052, ticket 15: o Proprietário libera à mão uma barbearia bloqueada até um dia (o fim desse dia, no fuso da barbearia).
+    it('desbloqueada à mão diz até que dia o acesso está liberado e pede para regularizar', () => {
+      // 02:59:59 UTC de 11/03 é o fim do dia 10 em Brasília.
+      const liberada: EstadoDeAcesso = { acesso: 'aviso', motivo: 'unblocked', dataRelevante: new Date('2040-03-11T02:59:59.999Z') };
+
+      expect(mensagemDoAviso(liberada, 3)).toBe(
+        'Acesso liberado manualmente até 10/03. Regularize a assinatura para não ter o acesso bloqueado.',
+      );
+    });
+
+    it('o último dia do desbloqueio segue o fuso da barbearia', () => {
+      // 03:59:59 UTC de 11/03 é o fim do dia 10 em Manaus (UTC-4) e já 00:59 do dia 11 em Brasília (UTC-3).
+      const liberada: EstadoDeAcesso = { acesso: 'aviso', motivo: 'unblocked', dataRelevante: new Date('2040-03-11T03:59:59.999Z') };
+
+      expect(mensagemDoAviso(liberada, 3, 'America/Manaus')).toContain('até 10/03');
+      expect(mensagemDoAviso(liberada, 3)).toContain('até 11/03');
+    });
+
+    it('desbloqueada sem a data não inventa uma', () => {
+      expect(mensagemDoAviso(aviso('unblocked'), null)).toBe(
+        'Acesso liberado manualmente. Regularize a assinatura para não ter o acesso bloqueado.',
+      );
+    });
   });
 });

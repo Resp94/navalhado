@@ -15,6 +15,8 @@ export type MotivoDeAcesso =
   | 'refunded'
   | 'charged_back'
   | 'blocked'
+  /** Barbearia bloqueada que o Proprietário liberou à mão até um dia (ticket 15): o acesso vem com aviso. */
+  | 'unblocked'
   | 'no_subscription';
 
 export interface EstadoDeAcesso {
