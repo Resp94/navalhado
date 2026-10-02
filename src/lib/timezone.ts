@@ -71,13 +71,26 @@ export function localDayUtcRange(date: string, timeZone: string) {
   };
 }
 
+const timeFormatterCache = new Map<string, Intl.DateTimeFormat>();
+
+// Criar um Intl.DateTimeFormat custa dezenas de microssegundos; quem formata uma hora por linha de uma lista grande (a Exportação
+// de Dados) paga isso a cada linha se o formatador não for reaproveitado.
+function getTimeFormatter(timeZone: string) {
+  let formatter = timeFormatterCache.get(timeZone);
+  if (!formatter) {
+    formatter = new Intl.DateTimeFormat('pt-BR', {
+      timeZone,
+      hour: '2-digit',
+      minute: '2-digit',
+      hourCycle: 'h23',
+    });
+    timeFormatterCache.set(timeZone, formatter);
+  }
+  return formatter;
+}
+
 export function formatTimeInZone(isoString: string, timeZone: string) {
-  return new Intl.DateTimeFormat('pt-BR', {
-    timeZone,
-    hour: '2-digit',
-    minute: '2-digit',
-    hourCycle: 'h23',
-  }).format(new Date(isoString));
+  return getTimeFormatter(timeZone).format(new Date(isoString));
 }
 
 export function dateInZone(instant: Date, timeZone: string) {
