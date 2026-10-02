@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useToast } from '../components/Toast';
 import { Input } from '../components/Input';
-import { Checkbox } from '../components/ui';
+import { AceiteDosTermos } from '../components/termos/AceiteDosTermos';
 import { TermosDaPlataformaModal } from '../components/termos/TermosDaPlataformaModal';
 import { usePlanos } from '../modules/planos/usePlanos';
 import { VERSAO_ATUAL_DOS_TERMOS } from '../modules/termos/textos';
@@ -503,33 +503,7 @@ export const CadastroBarbearia: React.FC = () => {
                   </div>
 
                   {/* Aceite dos Termos de Uso e da Política de Privacidade */}
-                  <div className="flex flex-col gap-1">
-                    <Checkbox
-                      checked={aceitouOsTermos}
-                      onChange={(e) => setAceitouOsTermos(e.target.checked)}
-                      disabled={loading}
-                      label="Li e aceito os Termos de Uso e a Política de Privacidade."
-                    />
-                    <p className="m-0 pl-[1.65rem] text-xs text-text-secondary">
-                      Leia os{' '}
-                      <button
-                        type="button"
-                        className="bg-none border-none p-0 text-brand-primary underline cursor-pointer font-semibold"
-                        onClick={() => setLegalModalMode('termos')}
-                      >
-                        Termos de Uso
-                      </button>{' '}
-                      e a{' '}
-                      <button
-                        type="button"
-                        className="bg-none border-none p-0 text-brand-primary underline cursor-pointer font-semibold"
-                        onClick={() => setLegalModalMode('privacidade')}
-                      >
-                        Política de Privacidade
-                      </button>
-                      .
-                    </p>
-                  </div>
+                  <AceiteDosTermos aceitou={aceitouOsTermos} onChange={setAceitouOsTermos} disabled={loading} />
 
                   <div className="mt-2 flex gap-4">
                     <button

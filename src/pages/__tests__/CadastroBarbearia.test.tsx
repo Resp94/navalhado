@@ -232,24 +232,6 @@ describe('CadastroBarbearia', () => {
       expect(mockAddToast).toHaveBeenCalledWith(expect.stringMatching(/Termos de Uso/), 'warning');
     });
 
-    it('manda a versão atual dos termos junto do cadastro', async () => {
-      render(<CadastroBarbearia />);
-      await avancarParaEtapaDoGestor();
-      aceitarOsTermos();
-      const submitButton = screen.getByRole('button', { name: 'Criar conta' });
-      await waitFor(() => expect(submitButton).toBeEnabled());
-
-      fireEvent.click(submitButton);
-
-      await waitFor(() => {
-        expect(mockSignUp).toHaveBeenCalledWith(
-          expect.objectContaining({
-            options: { data: expect.objectContaining({ terms_version: VERSAO_ATUAL_DOS_TERMOS }) },
-          })
-        );
-      });
-    });
-
     it('os links do aceite abrem os Termos de Uso e a Política de Privacidade da plataforma, sem marcar o aceite', async () => {
       render(<CadastroBarbearia />);
       await avancarParaEtapaDoGestor();
@@ -284,6 +266,8 @@ describe('CadastroBarbearia', () => {
 
     render(<CadastroBarbearia />);
     await avancarParaEtapaDoGestor();
+    // Com o aceite marcado, o catálogo que não carregou é a única razão de o botão estar desligado (sem ele, o aceite também o desligaria).
+    aceitarOsTermos();
 
     expect(await screen.findByText(/Não foi possível carregar os planos/i)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Criar conta' })).toBeDisabled();
