@@ -2,7 +2,6 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams, useParams } from 'react-router-dom';
 import { useToast } from '../../components/Toast';
 import { Modal } from '../../components/Modal';
-import { LegalModal } from '../../components/legal/LegalModal';
 import { HugeiconsIcon } from '@hugeicons/react';
 import {
   AlertCircleIcon,
@@ -47,7 +46,6 @@ export const MenuCliente: React.FC = () => {
   const [activeAppointmentId, setActiveAppointmentId] = useState<string | null>(null);
   const [cancelReason, setCancelReason] = useState('');
   const [canceling, setCanceling] = useState(false);
-  const [legalModalMode, setLegalModalMode] = useState<'privacy' | 'terms' | null>(null);
 
   // Estados de Prazo Expirado / Redirecionamento WhatsApp
   const [isDeadlineModalOpen, setIsDeadlineModalOpen] = useState(false);
@@ -408,15 +406,6 @@ export const MenuCliente: React.FC = () => {
           </button>
         </div>
       </Modal>
-
-      {/* Modal de Termos / Privacidade */}
-      {legalModalMode && (
-        <LegalModal
-          isOpen={true}
-          onClose={() => setLegalModalMode(null)}
-          mode={legalModalMode}
-        />
-      )}
 
       {/* Floating Bottom Nav */}
       <ClienteBottomNav
