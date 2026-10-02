@@ -95,7 +95,7 @@ select columns_are('public', 'tenant_subscriptions', array[
   'id', 'tenant_id', 'plan_id', 'status', 'created_at', 'updated_at',
   'trial_ends_at', 'current_period_start', 'current_period_end', 'first_failed_at',
   'blocked_at', 'blocked_reason', 'canceled_at', 'courtesy_ends_at',
-  'scheduled_plan_id', 'mp_subscription_id', 'card_brand', 'card_last4'
+  'scheduled_plan_id', 'mp_subscription_id', 'card_brand', 'card_last4', 'unblocked_until'
 ], 'a assinatura absorve start_date, end_date e billing_cycle nos campos novos');
 
 select throws_ok(

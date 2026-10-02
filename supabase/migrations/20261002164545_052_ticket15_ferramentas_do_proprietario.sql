@@ -9,10 +9,16 @@
 -- bloqueio seguem como estavam, então o pagamento que o Gerente fizer depois reativa a barbearia pelos caminhos de sempre. Enquanto
 -- a data vale, o Estado de Acesso de uma barbearia bloqueada é `warning` com o motivo `unblocked`; passada a data, volta ao motivo
 -- de antes, e a data relevante passa a ser o fim do desbloqueio (é dali que contam a data do bloqueio e os 7 dias da Instância
--- WhatsApp). Mudar a situação da assinatura (um pagamento aprovado, o bloqueio da rotina) tira o desbloqueio.
+-- WhatsApp). Mudar o que define o acesso (a situação da assinatura, o fim do teste, o fim da cortesia, o período pago, a primeira
+-- recusa ou o cancelamento: um pagamento aprovado, o bloqueio da rotina, estender o teste) tira o desbloqueio, e bloquear de novo uma
+-- barbearia desbloqueada o encerra na hora.
 --
 -- O motivo de cada ação do Proprietário fica só na trilha de auditoria (`audit_logs`), com `tenant_id` nulo: o Gerente lê a linha da
--- própria assinatura e as linhas de `audit_logs` do próprio tenant, e o motivo é nota interna.
+-- própria assinatura e as linhas de `audit_logs` do próprio tenant, e o motivo é nota interna. Como o Gerente também grava em
+-- `audit_logs` (com o `tenant_id` dele), a leitura da trilha só conta as linhas sem `tenant_id`.
+--
+-- Os dias das funções (`date`) valem até 20 anos à frente: mais que isso é erro de digitação (2206 no lugar de 2026) ou `infinity`,
+-- que o front nem sabe mostrar.
 
 -- 1. A data do desbloqueio ---------------------------------------------------------------------------------------------------------
 alter table public.tenant_subscriptions add column if not exists unblocked_until timestamptz;
@@ -107,10 +113,16 @@ begin
 end;
 $function$;
 
--- 3. Mudar a situacao da assinatura tira o desbloqueio -----------------------------------------------------------------------------
--- Um pagamento aprovado (ativa), o bloqueio da rotina, uma cortesia: o desbloqueio era de um bloqueio que ja nao existe, e uma data
--- antiga nao pode segurar um bloqueio de depois.
-create or replace function private.clear_unblock_on_status_change()
+-- 3. Mudar o que define o acesso tira o desbloqueio --------------------------------------------------------------------------------
+-- Um pagamento aprovado (ativa), o bloqueio da rotina, uma cortesia, estender o teste, o fim da cortesia, o periodo pago que avanca,
+-- uma recusa nova, o cancelamento: o desbloqueio era de um bloqueio que ja nao existe, e uma data antiga nao pode segurar um bloqueio
+-- de depois. So a situacao nao basta: estender o teste de quem segue em teste, ou mudar o fim da cortesia de quem segue em cortesia,
+-- troca a data e mantem a situacao. Cartao, plano, id no Mercado Pago e motivo do bloqueio nao mexem no acesso, e a mesma instrucao
+-- que poe o desbloqueio (a data muda junto) nao o tira.
+drop trigger if exists trg_clear_unblock_on_status_change on public.tenant_subscriptions;
+drop function if exists private.clear_unblock_on_status_change();
+
+create or replace function private.clear_unblock_on_access_change()
 returns trigger
 language plpgsql
 set search_path to ''
@@ -121,12 +133,18 @@ begin
 end;
 $function$;
 
-drop trigger if exists trg_clear_unblock_on_status_change on public.tenant_subscriptions;
-create trigger trg_clear_unblock_on_status_change
-  before update of status on public.tenant_subscriptions
+drop trigger if exists trg_clear_unblock_on_access_change on public.tenant_subscriptions;
+create trigger trg_clear_unblock_on_access_change
+  before update on public.tenant_subscriptions
   for each row
-  when (old.status is distinct from new.status)
-  execute function private.clear_unblock_on_status_change();
+  when (
+    old.unblocked_until is not null
+    and new.unblocked_until is not distinct from old.unblocked_until
+    and (old.status, old.trial_ends_at, old.courtesy_ends_at, old.current_period_end, old.first_failed_at, old.canceled_at)
+        is distinct from
+        (new.status, new.trial_ends_at, new.courtesy_ends_at, new.current_period_end, new.first_failed_at, new.canceled_at)
+  )
+  execute function private.clear_unblock_on_access_change();
 
 -- 4. A Instancia WhatsApp com o desbloqueio ----------------------------------------------------------------------------------------
 -- Desbloqueio em vigor: a barbearia esta liberada, e a instancia fica. Acabado o desbloqueio, os 7 dias contam dali, e nao do
@@ -197,6 +215,77 @@ end;
 $function$;
 revoke all on function private.whatsapp_instance_deletion_verdict(uuid, timestamptz) from public, anon, authenticated;
 
+-- 4b. Os avisos por e-mail com o desbloqueio ---------------------------------------------------------------------------------------
+-- O aviso de bloqueio ("seu acesso foi bloqueado") decide pelo Estado de Acesso, e nao so por `status = 'blocked'`: com um Desbloqueio
+-- Manual em vigor a situacao segue `blocked`, mas a barbearia esta liberada, e o e-mail dizendo que o acesso foi bloqueado seria falso
+-- (nem sai, nem vale o que ja estiver na fila). O evento do aviso e a data em que o acesso fechou, a data relevante do Estado de Acesso
+-- (`blocked_at`, ou o fim do desbloqueio quando ele acabou): acabado o desbloqueio sai o aviso, dentro dos 3 dias de sempre.
+create or replace function private.billing_notice_is_current(p_tenant_id uuid, p_kind text, p_ref_at timestamptz, p_now timestamptz)
+returns boolean
+language sql
+stable
+set search_path to ''
+as $function$
+  select exists (
+    select 1
+    from public.tenant_subscriptions s
+    where s.tenant_id = p_tenant_id
+      and case p_kind
+        when 'trial_ending' then s.status = 'trialing' and s.trial_ends_at = p_ref_at and s.trial_ends_at > p_now
+        when 'blocked' then s.status = 'blocked'
+          and (select e.access from private.subscription_access_state(s, p_now) e) = 'blocked'
+          and (select e.relevant_date from private.subscription_access_state(s, p_now) e) = p_ref_at
+        else s.status = 'past_due' and s.first_failed_at = p_ref_at
+      end
+  );
+$function$;
+revoke all on function private.billing_notice_is_current(uuid, text, timestamptz, timestamptz) from public, anon, authenticated;
+
+create or replace function private.enqueue_billing_notices(p_now timestamptz default now())
+returns integer
+language plpgsql
+security definer
+set search_path to ''
+as $function$
+declare
+  v_total integer;
+begin
+  insert into public.billing_notices(tenant_id, kind, ref_at)
+  select c.tenant_id, c.kind, c.ref_at
+  from (
+    select s.tenant_id, k.kind, k.ref_at
+    from public.tenant_subscriptions s
+    join public.tenants t on t.id = s.tenant_id
+    cross join lateral (select private.valid_timezone(t.timezone) as tz) z
+    cross join lateral (values
+      ('trial_ending',
+        case when s.status = 'trialing' and s.trial_ends_at > p_now
+                  and (s.trial_ends_at at time zone z.tz)::date - 3 = (p_now at time zone z.tz)::date
+             then s.trial_ends_at end),
+      ('payment_failed_day3',
+        case when s.status = 'past_due' and s.first_failed_at is not null
+                  and (s.first_failed_at at time zone z.tz)::date + 3 = (p_now at time zone z.tz)::date
+             then s.first_failed_at end),
+      ('payment_failed_day4',
+        case when s.status = 'past_due' and s.first_failed_at is not null
+                  and (s.first_failed_at at time zone z.tz)::date + 4 = (p_now at time zone z.tz)::date
+             then s.first_failed_at end),
+      ('blocked',
+        case when s.status = 'blocked' and s.blocked_reason is not null
+                  and (select e.access from private.subscription_access_state(s, p_now) e) = 'blocked'
+                  and (select e.relevant_date from private.subscription_access_state(s, p_now) e) between p_now - interval '3 days' and p_now
+             then (select e.relevant_date from private.subscription_access_state(s, p_now) e) end)
+    ) as k(kind, ref_at)
+    where k.ref_at is not null
+  ) c
+  on conflict (tenant_id, kind, ref_at) do nothing;
+
+  get diagnostics v_total = row_count;
+  return v_total;
+end;
+$function$;
+revoke all on function private.enqueue_billing_notices(timestamptz) from public, anon, authenticated;
+
 -- 5. Auxiliares das funcoes do Proprietario ----------------------------------------------------------------------------------------
 create or replace function private.assert_saas_admin()
 returns void
@@ -213,16 +302,30 @@ end;
 $function$;
 revoke all on function private.assert_saas_admin() from public, anon, authenticated;
 
--- O "ate o dia D" termina no fim do dia D no fuso da barbearia: 23:59:59.999999 de D, um microssegundo antes de o dia D+1 comecar la.
+-- O "ate o dia D" termina no fim do dia D no fuso da barbearia: um microssegundo antes de o dia D+1 comecar la (23:59:59.999999 de D).
 -- A data que a tela mostra (o Gerente, o Proprietario, a faixa de aviso) e a mesma que o Proprietario digitou: um instante na
--- virada do dia seguinte apareceria como D+1.
+-- virada do dia seguinte apareceria como D+1. O comeco de D+1 e o menor de dois candidatos, porque cada um erra num caso: a meia-noite
+-- de D+1 que se repete (Havana, Acores: o banco escolhe a segunda) vem uma hora tarde, e as 23:59:59.999999 de D que nao existem
+-- (Nuuk: o relogio pula das 23:00 para as 00:00) tambem; o menor dos dois e o certo nos dois. O fuso que o banco nao conhece cai em
+-- Sao Paulo (`private.valid_timezone`), como no resto do sistema. Recusa `infinity` e dia a mais de 20 anos (erro de digitacao).
 create or replace function private.end_of_day_in_tenant(p_tenant_id uuid, p_day date)
 returns timestamptz
-language sql
+language plpgsql
 stable
 set search_path to ''
 as $function$
-  select ((p_day + 1)::timestamp at time zone private.valid_timezone((select t.timezone from public.tenants t where t.id = p_tenant_id))) - interval '1 microsecond';
+declare
+  v_tz text := private.valid_timezone((select t.timezone from public.tenants t where t.id = p_tenant_id));
+begin
+  if p_day is null or not isfinite(p_day) or p_day > ((now() at time zone v_tz)::date + interval '20 years')::date then
+    raise exception 'INVALID_DATE' using errcode = '22023';
+  end if;
+
+  return least(
+    (p_day + 1)::timestamp at time zone v_tz,
+    ((p_day::timestamp + time '23:59:59.999999') at time zone v_tz) + interval '1 microsecond'
+  ) - interval '1 microsecond';
+end;
 $function$;
 revoke all on function private.end_of_day_in_tenant(uuid, date) from public, anon, authenticated;
 
@@ -383,7 +486,7 @@ declare
   v_sub public.tenant_subscriptions;
   v_base public.tenant_subscriptions;
   v_access text;
-  v_motivo text := btrim(coalesce(p_reason, ''));
+  v_motivo text := btrim(coalesce(p_reason, ''), E' \t\r\n\f\v');
   v_fim timestamptz;
 begin
   perform private.assert_saas_admin();
@@ -432,6 +535,8 @@ $function$;
 
 -- Bloquear a mao (a data do bloqueio e a do relogio do banco, e nao a do navegador), com o motivo (obrigatorio, so na trilha de
 -- auditoria). Sem motivo de cobranca: a tela de bloqueio diz so que o acesso esta suspenso e o e-mail de bloqueio nao sai.
+-- Numa barbearia ja bloqueada com um desbloqueio em vigor, bloquear encerra o desbloqueio na hora: a data dele vira a de agora (o
+-- bloqueio volta a ser o de antes, e dali contam os 7 dias da Instancia WhatsApp). Sem desbloqueio em vigor, ja esta bloqueada.
 create or replace function public.admin_block_tenant(p_tenant_id uuid, p_reason text)
 returns void
 language plpgsql
@@ -440,7 +545,7 @@ set search_path to ''
 as $function$
 declare
   v_sub public.tenant_subscriptions;
-  v_motivo text := btrim(coalesce(p_reason, ''));
+  v_motivo text := btrim(coalesce(p_reason, ''), E' \t\r\n\f\v');
 begin
   perform private.assert_saas_admin();
 
@@ -448,11 +553,25 @@ begin
   if not found then
     raise exception 'SUBSCRIPTION_NOT_FOUND' using errcode = 'P0002';
   end if;
-  if v_sub.status = 'blocked' then
+  if v_sub.status = 'blocked' and (v_sub.unblocked_until is null or v_sub.unblocked_until <= now()) then
     raise exception 'ALREADY_BLOCKED' using errcode = '55000';
   end if;
   if v_motivo = '' then
     raise exception 'REASON_REQUIRED' using errcode = '22023';
+  end if;
+
+  if v_sub.status = 'blocked' then
+    update public.tenant_subscriptions
+    set unblocked_until = now(),
+        updated_at = now()
+    where id = v_sub.id;
+
+    perform private.log_admin_action(
+      'admin_block_tenant',
+      p_tenant_id,
+      jsonb_build_object('reason', v_motivo, 'previous_status', v_sub.status, 'ended_unblock_until', v_sub.unblocked_until)
+    );
+    return;
   end if;
 
   update public.tenant_subscriptions
@@ -470,7 +589,11 @@ begin
 end;
 $function$;
 
--- Os detalhes da assinatura de uma barbearia: tudo o que o Proprietario precisa para atender o suporte sem abrir o banco.
+-- Os detalhes da assinatura de uma barbearia: tudo o que o Proprietario precisa para atender o suporte sem abrir o banco. O fuso sai
+-- como o banco o usa (`private.valid_timezone`): o gravado e texto livre e um que o Intl nao conhece quebraria a tela. O desbloqueio
+-- so aparece enquanto vale (um que ja acabou e o bloqueio de antes). A trilha so conta as linhas sem `tenant_id` (as da funcao
+-- `private.log_admin_action`): o Gerente grava linhas com o `tenant_id` dele, e uma com a acao e o motivo falsos nao pode passar por
+-- uma acao do Proprietario (nem forcar uma leitura de `audit_logs` inteira: o indice que serve a consulta e o do `tenant_id`).
 create or replace function public.admin_get_tenant_subscription(p_tenant_id uuid)
 returns jsonb
 language plpgsql
@@ -483,6 +606,7 @@ declare
   v_tem_assinatura boolean;
   v_plano public.plans;
   v_plano_agendado public.plans;
+  v_acesso record;
 begin
   perform private.assert_saas_admin();
 
@@ -498,13 +622,15 @@ begin
     select * into v_plano_agendado from public.plans where id = v_sub.scheduled_plan_id;
   end if;
 
+  select e.access, e.reason, e.relevant_date into v_acesso from private.tenant_access_state(p_tenant_id) e;
+
   return jsonb_build_object(
     'tenant', jsonb_build_object(
       'id', v_tenant.id,
       'name', v_tenant.name,
       'email', v_tenant.email,
       'phone', v_tenant.phone,
-      'timezone', v_tenant.timezone,
+      'timezone', private.valid_timezone(v_tenant.timezone),
       'created_at', v_tenant.created_at
     ),
     'subscription', case when v_tem_assinatura then jsonb_build_object(
@@ -526,7 +652,7 @@ begin
         jsonb_build_object('id', v_plano_agendado.id, 'name', v_plano_agendado.name, 'price', v_plano_agendado.price, 'max_professionals', v_plano_agendado.max_professionals)
       end
     ) else null end,
-    'access', (select jsonb_build_object('access', e.access, 'reason', e.reason, 'relevant_date', e.relevant_date) from private.tenant_access_state(p_tenant_id) e),
+    'access', jsonb_build_object('access', v_acesso.access, 'reason', v_acesso.reason, 'relevant_date', v_acesso.relevant_date),
     'active_professionals', (select count(*) from public.professionals pr where pr.tenant_id = p_tenant_id and pr.deleted_at is null),
     'charges', coalesce((
       select jsonb_agg(to_jsonb(c) order by c.charged_at desc)
@@ -538,10 +664,10 @@ begin
         limit 50
       ) c
     ), '[]'::jsonb),
-    'unblock', case when v_tem_assinatura and v_sub.unblocked_until is not null then (
+    'unblock', case when v_acesso.reason = 'unblocked' then (
       select jsonb_build_object('reason', a.details->>'reason', 'at', a.created_at, 'until', v_sub.unblocked_until)
       from public.audit_logs a
-      where a.action = 'admin_unblock_tenant' and a.details->>'tenant_id' = p_tenant_id::text
+      where a.tenant_id is null and a.action = 'admin_unblock_tenant' and a.details->>'tenant_id' = p_tenant_id::text
       order by a.created_at desc
       limit 1
     ) else null end,
@@ -550,7 +676,7 @@ begin
       from (
         select a.action, a.created_at, a.user_id, a.details
         from public.audit_logs a
-        where a.action like 'admin\_%' and a.details->>'tenant_id' = p_tenant_id::text
+        where a.tenant_id is null and a.action like 'admin\_%' and a.details->>'tenant_id' = p_tenant_id::text
         order by a.created_at desc
         limit 20
       ) x
@@ -560,8 +686,9 @@ begin
 end;
 $function$;
 
--- Os avisos por e-mail que falharam (esgotaram as tentativas, ou o Resend recusou), com o motivo, para o Proprietario perceber uma
--- chave do Resend vencida ou um dominio sem verificacao antes de o cliente reclamar (ticket 08).
+-- Os avisos por e-mail que falharam (esgotaram as tentativas, ou o Resend recusou) nos ultimos 30 dias, com o motivo, para o
+-- Proprietario perceber uma chave do Resend vencida ou um dominio sem verificacao antes de o cliente reclamar (ticket 08). `failed` e
+-- terminal e nada o apaga: sem a janela o cartao nunca voltaria a "nenhum aviso falhou" depois de a chave ser trocada.
 create or replace function public.admin_list_failed_billing_notices(p_limit integer default 50)
 returns table(id uuid, tenant_id uuid, tenant_name text, kind text, ref_at timestamptz, attempts integer, detail text, created_at timestamptz)
 language plpgsql
@@ -575,7 +702,7 @@ begin
   select n.id, n.tenant_id, t.name, n.kind, n.ref_at, n.attempts, n.detail, n.created_at
   from public.billing_notices n
   left join public.tenants t on t.id = n.tenant_id
-  where n.status = 'failed'
+  where n.status = 'failed' and n.created_at > now() - interval '30 days'
   order by n.created_at desc
   limit greatest(1, least(coalesce(p_limit, 50), 200));
 end;

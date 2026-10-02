@@ -1,14 +1,17 @@
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(123);
+select plan(173);
 
 -- Spec 052, ticket 15: ferramentas do Proprietario. Funcoes do banco so para o Proprietario (estender o teste, dar e tirar
 -- cortesia, desbloquear ate uma data com o motivo registrado, bloquear a mao, ler os detalhes da assinatura e listar os avisos por
 -- e-mail que falharam). Cada uma recusa Gerente, Barbeiro, anonimo e Gerente com tenant_id nulo. O desbloqueio e uma data em cima
 -- da assinatura (tenant_subscriptions.unblocked_until): enquanto vale, o Estado de Acesso e `warning/unblocked`; depois, volta ao
 -- motivo de antes e o acesso fecha de novo no fim do desbloqueio (e e dali que contam a data do bloqueio e os 7 dias da Instancia
--- WhatsApp). O motivo fica so na trilha de auditoria, com tenant_id nulo, para o Gerente nao le-lo. Os dias terminam as 23:59:59 no
--- fuso da barbearia (Manaus UTC-4 na T01; Sao Paulo UTC-3 nas outras).
+-- WhatsApp). Bloquear uma barbearia desbloqueada encerra o desbloqueio na hora. O desbloqueio sai quando muda o que define o acesso
+-- (a situacao, o fim do teste, o fim da cortesia, o periodo pago, a primeira recusa, o cancelamento) e fica quando muda outra coisa.
+-- O motivo fica so na trilha de auditoria, com tenant_id nulo, para o Gerente nao le-lo (e a trilha so conta as linhas sem tenant_id:
+-- o Gerente grava linhas com o proprio tenant_id). Os dias terminam as 23:59:59.999999 no fuso da barbearia (Manaus UTC-4 na T01;
+-- Sao Paulo UTC-3 nas outras) e nao passam de 20 anos.
 
 insert into public.tenants(id, name, email, phone, slug, onboarding_completed, timezone)
 values
@@ -27,7 +30,15 @@ values
   ('78000000-0000-0000-0000-000000000013', 'T78 WhatsApp', 't78-13@test.local', '92999978013', 't78-13', true, 'America/Sao_Paulo'),
   ('78000000-0000-0000-0000-000000000014', 'T78 ManualParaCortesia', 't78-14@test.local', '92999978014', 't78-14', true, 'America/Sao_Paulo'),
   ('78000000-0000-0000-0000-000000000015', 'T78 AtivaParaBloqueio', 't78-15@test.local', '92999978015', 't78-15', true, 'America/Sao_Paulo'),
-  ('78000000-0000-0000-0000-000000000016', 'T78 GatilhoDoDesbloqueio', 't78-16@test.local', '92999978016', 't78-16', true, 'America/Sao_Paulo');
+  ('78000000-0000-0000-0000-000000000016', 'T78 GatilhoDoDesbloqueio', 't78-16@test.local', '92999978016', 't78-16', true, 'America/Sao_Paulo'),
+  ('78000000-0000-0000-0000-000000000017', 'T78 TesteVencidoDesbloqueado', 't78-17@test.local', '92999978017', 't78-17', true, 'America/Sao_Paulo'),
+  ('78000000-0000-0000-0000-000000000018', 'T78 CortesiaVencidaDesbloqueada', 't78-18@test.local', '92999978018', 't78-18', true, 'America/Sao_Paulo'),
+  ('78000000-0000-0000-0000-000000000019', 'T78 DesbloqueioQueFica', 't78-19@test.local', '92999978019', 't78-19', true, 'America/Sao_Paulo'),
+  ('78000000-0000-0000-0000-000000000020', 'T78 ColunasDoGatilho', 't78-20@test.local', '92999978020', 't78-20', true, 'America/Sao_Paulo'),
+  ('78000000-0000-0000-0000-000000000021', 'T78 Havana', 't78-21@test.local', '92999978021', 't78-21', true, 'America/Havana'),
+  ('78000000-0000-0000-0000-000000000022', 'T78 Nuuk', 't78-22@test.local', '92999978022', 't78-22', true, 'America/Nuuk'),
+  ('78000000-0000-0000-0000-000000000023', 'T78 FusoInvalido', 't78-23@test.local', '92999978023', 't78-23', true, 'Brazil/Foo'),
+  ('78000000-0000-0000-0000-000000000024', 'T78 AvisoDeBloqueio', 't78-24@test.local', '92999978024', 't78-24', true, 'America/Sao_Paulo');
 
 delete from public.tenant_subscriptions where tenant_id::text like '78000000-0000-0000-0000-0000000000%';
 insert into public.tenant_subscriptions(tenant_id, plan_id, status, trial_ends_at, current_period_start, current_period_end, first_failed_at, blocked_at, blocked_reason, canceled_at, courtesy_ends_at, updated_at)
@@ -46,7 +57,12 @@ values
   ('78000000-0000-0000-0000-000000000013', 'b3fa7384-d113-4a1b-a5ed-1efeb7e51c22', 'blocked', null, null, null, null, now() - interval '20 days', 'trial_expired', null, null, now() - interval '30 days'),
   ('78000000-0000-0000-0000-000000000014', 'b3fa7384-d113-4a1b-a5ed-1efeb7e51c22', 'blocked', null, null, null, null, now() - interval '2 days', null, null, null, now() - interval '30 days'),
   ('78000000-0000-0000-0000-000000000015', 'b3fa7384-d113-4a1b-a5ed-1efeb7e51c22', 'active', null, now() - interval '5 days', now() + interval '25 days', null, null, null, null, null, now() - interval '30 days'),
-  ('78000000-0000-0000-0000-000000000016', 'b3fa7384-d113-4a1b-a5ed-1efeb7e51c22', 'blocked', null, null, null, null, now() - interval '3 days', 'trial_expired', null, null, now() - interval '30 days');
+  ('78000000-0000-0000-0000-000000000016', 'b3fa7384-d113-4a1b-a5ed-1efeb7e51c22', 'blocked', null, null, null, null, now() - interval '3 days', 'trial_expired', null, null, now() - interval '30 days'),
+  ('78000000-0000-0000-0000-000000000017', 'b3fa7384-d113-4a1b-a5ed-1efeb7e51c22', 'trialing', now() - interval '1 day', null, null, null, null, null, null, null, now() - interval '30 days'),
+  ('78000000-0000-0000-0000-000000000018', 'b3fa7384-d113-4a1b-a5ed-1efeb7e51c22', 'courtesy', null, null, null, null, null, null, null, now() - interval '1 day', now() - interval '30 days'),
+  ('78000000-0000-0000-0000-000000000019', 'b3fa7384-d113-4a1b-a5ed-1efeb7e51c22', 'blocked', null, null, null, null, now() - interval '3 days', 'trial_expired', null, null, now() - interval '30 days'),
+  ('78000000-0000-0000-0000-000000000020', 'b3fa7384-d113-4a1b-a5ed-1efeb7e51c22', 'blocked', null, null, null, null, now() - interval '3 days', 'trial_expired', null, null, now() - interval '30 days'),
+  ('78000000-0000-0000-0000-000000000024', 'b3fa7384-d113-4a1b-a5ed-1efeb7e51c22', 'blocked', null, null, null, null, now() - interval '1 hour', 'payment_failed', null, null, now() - interval '30 days');
 
 insert into public.professionals(id, tenant_id, name, phone, commission_percentage, is_active, deleted_at)
 values
@@ -63,7 +79,8 @@ insert into public.billing_notices(tenant_id, kind, ref_at, status, attempts, de
 values
   ('78000000-0000-0000-0000-000000000011', 'trial_ending', now() - interval '3 days', 'failed', 3, 'Resend 401: chave invalida', now() - interval '3 days'),
   ('78000000-0000-0000-0000-000000000005', 'payment_failed_day0', now() - interval '6 days', 'failed', 3, 'Resend 403: dominio sem verificacao', now() - interval '1 day'),
-  ('78000000-0000-0000-0000-000000000005', 'payment_failed_day4', now() - interval '2 days', 'sent', 1, null, now() - interval '2 days');
+  ('78000000-0000-0000-0000-000000000005', 'payment_failed_day4', now() - interval '2 days', 'sent', 1, null, now() - interval '2 days'),
+  ('78000000-0000-0000-0000-000000000005', 'payment_failed_day3', now() - interval '41 days', 'failed', 3, 'Resend 401: chave de antes', now() - interval '40 days');
 
 insert into auth.users(id, email)
 values
@@ -243,6 +260,7 @@ select throws_ok($$select public.admin_unblock_tenant('78000000-0000-0000-0000-0
 select throws_ok($$select public.admin_unblock_tenant('78000000-0000-0000-0000-000000000011', date '2040-03-10', 'motivo')$$, '55000', 'NOT_BLOCKED', 'nem a ativa');
 select throws_ok($$select public.admin_unblock_tenant('78000000-0000-0000-0000-000000000013', date '2040-03-10', '   ')$$, '22023', 'REASON_REQUIRED', 'o motivo e obrigatorio');
 select throws_ok($$select public.admin_unblock_tenant('78000000-0000-0000-0000-000000000013', date '2040-03-10', null)$$, '22023', 'REASON_REQUIRED', 'sem motivo, nao');
+select throws_ok($$select public.admin_unblock_tenant('78000000-0000-0000-0000-000000000013', date '2040-03-10', E'\t\n ')$$, '22023', 'REASON_REQUIRED', 'tabulacao e quebra de linha tambem nao sao um motivo');
 select throws_ok($$select public.admin_unblock_tenant('78000000-0000-0000-0000-000000000013', date '2000-01-01', 'motivo')$$, '22023', 'INVALID_DATE', 'a data nao pode ter passado');
 select throws_ok($$select public.admin_unblock_tenant('78000000-0000-0000-0000-000000000012', date '2040-03-10', 'motivo')$$, 'P0002', 'SUBSCRIPTION_NOT_FOUND', 'barbearia sem assinatura');
 select lives_ok($$select public.admin_unblock_tenant('78000000-0000-0000-0000-000000000005', date '2040-04-15', 'mais uma semana: o banco confirmou o pagamento')$$, 'desbloquear de novo uma barbearia ja desbloqueada muda a data');
@@ -260,7 +278,7 @@ select set_config('request.jwt.claim.sub', '78000000-0000-0000-0000-0000000000a2
 set local role authenticated;
 select is((select count(*)::int from public.audit_logs where action like 'admin\_%'), 0, 'o Gerente nao le a trilha das acoes do Proprietario (o motivo e nota interna)');
 reset role;
--- O gatilho: mudar a situacao da assinatura (um pagamento aprovado, por exemplo) tira o desbloqueio.
+-- O gatilho: mudar a situacao da assinatura (um pagamento aprovado, por exemplo) tira o desbloqueio (mais na secao K).
 select set_config('request.jwt.claim.sub', '78000000-0000-0000-0000-0000000000a1', true);
 set local role authenticated;
 select lives_ok($$select public.admin_unblock_tenant('78000000-0000-0000-0000-000000000016', date '2040-03-10', 'motivo')$$, 'desbloqueia a barbearia do teste do gatilho');
@@ -273,9 +291,23 @@ select is((select s.unblocked_until from public.tenant_subscriptions s where s.t
 select set_config('request.jwt.claim.sub', '78000000-0000-0000-0000-0000000000a1', true);
 set local role authenticated;
 select lives_ok($$select public.admin_block_tenant('78000000-0000-0000-0000-000000000015', 'uso indevido do sistema')$$, 'o Proprietario bloqueia a barbearia ativa');
-select throws_ok($$select public.admin_block_tenant('78000000-0000-0000-0000-000000000008', 'motivo')$$, '55000', 'ALREADY_BLOCKED', 'quem ja esta bloqueado nao bloqueia de novo');
+select throws_ok($$select public.admin_block_tenant('78000000-0000-0000-0000-000000000013', 'motivo')$$, '55000', 'ALREADY_BLOCKED', 'quem ja esta bloqueado (sem desbloqueio em vigor) nao bloqueia de novo');
 select throws_ok($$select public.admin_block_tenant('78000000-0000-0000-0000-000000000011', '  ')$$, '22023', 'REASON_REQUIRED', 'o motivo e obrigatorio');
+select throws_ok($$select public.admin_block_tenant('78000000-0000-0000-0000-000000000011', E'\t\n ')$$, '22023', 'REASON_REQUIRED', 'tabulacao e quebra de linha tambem nao sao um motivo');
+select lives_ok($$select public.admin_block_tenant('78000000-0000-0000-0000-000000000008', 'o estorno foi contestado depois do desbloqueio')$$, 'bloquear uma barbearia desbloqueada encerra o desbloqueio em vigor');
+select throws_ok($$select public.admin_block_tenant('78000000-0000-0000-0000-000000000008', 'de novo')$$, '55000', 'ALREADY_BLOCKED', 'com o desbloqueio encerrado ela e a bloqueada de antes: nao ha o que bloquear');
 reset role;
+select is((select s.unblocked_until = now() from public.tenant_subscriptions s where s.tenant_id = '78000000-0000-0000-0000-000000000008')::text, 'true', 'o desbloqueio acaba agora (a data vira a de agora, do relogio do banco)');
+select is(
+  (select e.access || '/' || e.reason || '/' || (e.relevant_date = now())::text from private.tenant_access_state('78000000-0000-0000-0000-000000000008', now() + interval '1 minute') e),
+  'blocked/refunded/true',
+  'a barbearia volta ao bloqueio de antes, e o acesso fechou de novo agora (e dali que contam os 7 dias da Instancia WhatsApp)'
+);
+select is(
+  (select a.details->>'reason' || '/' || (a.details ? 'ended_unblock_until')::text from public.audit_logs a where a.action = 'admin_block_tenant' and a.details->>'tenant_id' = '78000000-0000-0000-0000-000000000008'::text),
+  'o estorno foi contestado depois do desbloqueio/true',
+  'a trilha diz que o bloqueio encerrou um desbloqueio, com o motivo'
+);
 select is(
   (select s.status from public.tenant_subscriptions s where s.tenant_id = '78000000-0000-0000-0000-000000000015') || '/' || ((select s.blocked_at from public.tenant_subscriptions s where s.tenant_id = '78000000-0000-0000-0000-000000000015') = now())::text || '/' || coalesce((select s.blocked_reason from public.tenant_subscriptions s where s.tenant_id = '78000000-0000-0000-0000-000000000015'), 'sem motivo'),
   'blocked/true/sem motivo',
@@ -316,6 +348,24 @@ select is((select (d->'subscription'->>'unblocked_until') is not null from t78_d
 select is((select d->'access'->>'access' || '/' || (d->'access'->>'reason') from t78_detalhes_recusa), 'warning/unblocked', 'e o Estado de Acesso diz que esta liberada pelo desbloqueio');
 select is((select jsonb_array_length(d->'admin_actions')::text from t78_detalhes_recusa), '2', 'as acoes do Proprietario nessa barbearia (os dois desbloqueios)');
 select is((select (d->'subscription')::text || '/' || (d->'access'->>'reason') from t78_detalhes_sem), 'null/no_subscription', 'a barbearia sem assinatura vem sem assinatura, e nao como erro');
+-- O desbloqueio que ja acabou (o do estorno, encerrado na secao E) nao aparece como em vigor.
+create temp table t78_detalhes_estorno as select public.admin_get_tenant_subscription('78000000-0000-0000-0000-000000000008') as d;
+select is((select d->'access'->>'access' || '/' || (d->'access'->>'reason') || '/' || jsonb_typeof(d->'unblock') from t78_detalhes_estorno), 'blocked/refunded/null', 'o desbloqueio que ja acabou nao aparece como em vigor (unblock: null)');
+-- O fuso que o banco nao conhece sai como o fuso que ele usa nas contas (Sao Paulo): a tela nao quebra com ele.
+create temp table t78_detalhes_fuso as select public.admin_get_tenant_subscription('78000000-0000-0000-0000-000000000023') as d;
+select is((select d->'tenant'->>'timezone' from t78_detalhes_fuso), 'America/Sao_Paulo', 'o fuso invalido sai como America/Sao_Paulo, o que o banco usa');
+-- A trilha so conta as linhas do Proprietario (sem tenant_id): o Gerente grava linhas com o proprio tenant_id, e uma com a acao e o
+-- motivo falsos nao pode passar por uma acao do Proprietario.
+select set_config('request.jwt.claim.sub', '78000000-0000-0000-0000-0000000000a2', true);
+set local role authenticated;
+insert into public.audit_logs(tenant_id, user_id, action, resource, details, created_at)
+values ('78000000-0000-0000-0000-000000000001', '78000000-0000-0000-0000-0000000000a1', 'admin_unblock_tenant', 'tenant_subscription',
+        jsonb_build_object('tenant_id', '78000000-0000-0000-0000-000000000005', 'reason', 'FORJADO pelo Gerente'), now() + interval '1 hour');
+reset role;
+select set_config('request.jwt.claim.sub', '78000000-0000-0000-0000-0000000000a1', true);
+create temp table t78_detalhes_forjado as select public.admin_get_tenant_subscription('78000000-0000-0000-0000-000000000005') as d;
+select is((select d->'unblock'->>'reason' from t78_detalhes_forjado), 'mais uma semana: o banco confirmou o pagamento', 'a linha que o Gerente gravou na propria barbearia nao passa por motivo do Proprietario');
+select is((select jsonb_array_length(d->'admin_actions')::text from t78_detalhes_forjado), '2', 'nem entra nas acoes do Proprietario');
 select set_config('request.jwt.claim.sub', '78000000-0000-0000-0000-0000000000a1', true);
 set local role authenticated;
 select throws_ok($$select public.admin_get_tenant_subscription('78000000-0000-0000-0000-0000000000ff')$$, 'P0002', 'TENANT_NOT_FOUND', 'barbearia que nao existe');
@@ -326,12 +376,100 @@ select is(
   (select array_agg(tenant_name || '|' || kind || '|' || attempts::text || '|' || detail order by created_at desc)
    from t78_avisos where tenant_id::text like '78000000-%'),
   array['T78 Recusa|payment_failed_day0|3|Resend 403: dominio sem verificacao', 'T78 Detalhes|trial_ending|3|Resend 401: chave invalida'],
-  'lista so os avisos que falharam, do mais novo para o mais velho, com a barbearia, as tentativas e o motivo'
+  'lista so os avisos que falharam nos ultimos 30 dias (o de 40 dias atras ja nao conta), do mais novo para o mais velho, com a barbearia, as tentativas e o motivo'
 );
 select set_config('request.jwt.claim.sub', '78000000-0000-0000-0000-0000000000a1', true);
 set local role authenticated;
 select is((select count(*)::int from public.admin_list_failed_billing_notices(1)), 1, 'o limite pedido vale');
 select is((select count(*)::int from public.admin_list_failed_billing_notices(0)), 1, 'um limite que nao faz sentido cai para 1');
+reset role;
+
+-- J. Datas fora do razoavel, e o fim do dia no fuso da barbearia ---------------------------------------------------------------
+select set_config('request.jwt.claim.sub', '78000000-0000-0000-0000-0000000000a1', true);
+set local role authenticated;
+select throws_ok($$select public.admin_unblock_tenant('78000000-0000-0000-0000-000000000013', 'infinity'::date, 'motivo')$$, '22023', 'INVALID_DATE', 'infinity nao e um dia: o desbloqueio nao aceita');
+select throws_ok($$select public.admin_unblock_tenant('78000000-0000-0000-0000-000000000013', date '9999-12-31', 'motivo')$$, '22023', 'INVALID_DATE', 'nem o ano 9999');
+select throws_ok($$select public.admin_extend_trial('78000000-0000-0000-0000-000000000010', 'infinity'::date)$$, '22023', 'INVALID_DATE', 'estender o teste ate infinity tambem nao');
+select throws_ok($$select public.admin_set_courtesy('78000000-0000-0000-0000-000000000015', date '9999-12-31')$$, '22023', 'INVALID_DATE', 'nem a cortesia ate o ano 9999');
+select throws_ok($$select public.admin_set_courtesy('78000000-0000-0000-0000-000000000015', (current_date + interval '20 years' + interval '3 days')::date)$$, '22023', 'INVALID_DATE', 'passando de 20 anos e erro de digitacao (2206 no lugar de 2026): recusa');
+select lives_ok($$select public.admin_set_courtesy('78000000-0000-0000-0000-000000000015', (current_date + interval '19 years')::date)$$, 'dentro de 20 anos vale');
+reset role;
+select is(private.end_of_day_in_tenant('78000000-0000-0000-0000-000000000001', date '2040-03-10'), timestamptz '2040-03-11 03:59:59.999999+00', 'um dia comum termina um microssegundo antes do seguinte (Manaus, UTC-4)');
+select is(private.end_of_day_in_tenant('78000000-0000-0000-0000-000000000021', date '2026-10-31'), timestamptz '2026-11-01 03:59:59.999999+00', 'Havana, onde a meia-noite do dia seguinte se repete: o dia 31 termina as 23:59:59.999999 de la, e nao uma hora depois');
+select is(private.end_of_day_in_tenant('78000000-0000-0000-0000-000000000022', date '2026-03-28'), timestamptz '2026-03-29 00:59:59.999999+00', 'Nuuk, onde as 23:00 do dia 28 nao existem: o dia termina no instante da virada');
+select is(private.end_of_day_in_tenant('78000000-0000-0000-0000-000000000023', date '2040-03-10'), timestamptz '2040-03-11 02:59:59.999999+00', 'o fuso gravado que o banco nao conhece cai em Sao Paulo, como no resto do sistema');
+
+-- K. O desbloqueio sai quando muda o que define o acesso, e fica quando muda outra coisa ---------------------------------------
+select set_config('request.jwt.claim.sub', '78000000-0000-0000-0000-0000000000a1', true);
+set local role authenticated;
+select lives_ok($$select public.admin_unblock_tenant('78000000-0000-0000-0000-000000000017', date '2040-06-10', 'motivo')$$, 'desbloqueia o teste vencido que a rotina ainda nao bloqueou (a situacao segue em teste)');
+select lives_ok($$select public.admin_extend_trial('78000000-0000-0000-0000-000000000017', date '2040-03-20')$$, 'e o Proprietario estende o teste dessa barbearia');
+select lives_ok($$select public.admin_unblock_tenant('78000000-0000-0000-0000-000000000018', date '2040-06-10', 'motivo')$$, 'desbloqueia a cortesia vencida que a rotina ainda nao bloqueou (a situacao segue em cortesia)');
+select lives_ok($$select public.admin_set_courtesy('78000000-0000-0000-0000-000000000018', date '2040-03-20')$$, 'e o Proprietario muda o fim dessa cortesia');
+select lives_ok($$select public.admin_unblock_tenant('78000000-0000-0000-0000-000000000019', date '2040-06-10', 'motivo')$$, 'desbloqueia a barbearia que vai receber mudancas que nao mexem no acesso');
+reset role;
+select is((select s.unblocked_until::text from public.tenant_subscriptions s where s.tenant_id = '78000000-0000-0000-0000-000000000017'), null, 'estender o teste (a situacao segue em teste, o fim do teste muda) tira o desbloqueio de antes');
+select is((select e.access || '/' || e.reason from private.tenant_access_state('78000000-0000-0000-0000-000000000017', timestamptz '2040-04-01 12:00:00+00') e), 'blocked/trial_expired', 'depois do fim do teste novo a barbearia esta bloqueada: o desbloqueio de antes nao a segura');
+select is((select s.unblocked_until::text from public.tenant_subscriptions s where s.tenant_id = '78000000-0000-0000-0000-000000000018'), null, 'mudar o fim da cortesia (a situacao segue em cortesia) tira o desbloqueio de antes');
+select is((select e.access || '/' || e.reason from private.tenant_access_state('78000000-0000-0000-0000-000000000018', timestamptz '2040-04-01 12:00:00+00') e), 'blocked/courtesy_expired', 'depois do fim da cortesia nova a barbearia esta bloqueada: o desbloqueio de antes nao a segura');
+update public.tenant_subscriptions set card_brand = 'visa', card_last4 = '1234', mp_subscription_id = 'mp-t78-19', blocked_reason = 'canceled', updated_at = now() where tenant_id = '78000000-0000-0000-0000-000000000019';
+select is(((select s.unblocked_until from public.tenant_subscriptions s where s.tenant_id = '78000000-0000-0000-0000-000000000019') is not null)::text, 'true', 'mudar o cartao, o id no Mercado Pago ou o motivo do bloqueio nao tira o desbloqueio');
+update public.tenant_subscriptions set status = status, trial_ends_at = trial_ends_at, courtesy_ends_at = courtesy_ends_at, current_period_end = current_period_end, first_failed_at = first_failed_at, canceled_at = canceled_at where tenant_id = '78000000-0000-0000-0000-000000000019';
+select is(((select s.unblocked_until from public.tenant_subscriptions s where s.tenant_id = '78000000-0000-0000-0000-000000000019') is not null)::text, 'true', 'gravar os mesmos valores nao tira o desbloqueio');
+-- Coluna por coluna, numa barbearia so: poe o desbloqueio e muda uma das que definem o acesso.
+update public.tenant_subscriptions set unblocked_until = now() + interval '30 days' where tenant_id = '78000000-0000-0000-0000-000000000020';
+update public.tenant_subscriptions set status = 'canceled' where tenant_id = '78000000-0000-0000-0000-000000000020';
+select is((select s.unblocked_until::text from public.tenant_subscriptions s where s.tenant_id = '78000000-0000-0000-0000-000000000020'), null, 'mudar a situacao tira o desbloqueio');
+update public.tenant_subscriptions set unblocked_until = now() + interval '30 days' where tenant_id = '78000000-0000-0000-0000-000000000020';
+update public.tenant_subscriptions set trial_ends_at = now() + interval '40 days' where tenant_id = '78000000-0000-0000-0000-000000000020';
+select is((select s.unblocked_until::text from public.tenant_subscriptions s where s.tenant_id = '78000000-0000-0000-0000-000000000020'), null, 'mudar o fim do teste tira o desbloqueio');
+update public.tenant_subscriptions set unblocked_until = now() + interval '30 days' where tenant_id = '78000000-0000-0000-0000-000000000020';
+update public.tenant_subscriptions set courtesy_ends_at = now() + interval '40 days' where tenant_id = '78000000-0000-0000-0000-000000000020';
+select is((select s.unblocked_until::text from public.tenant_subscriptions s where s.tenant_id = '78000000-0000-0000-0000-000000000020'), null, 'mudar o fim da cortesia tira o desbloqueio');
+update public.tenant_subscriptions set unblocked_until = now() + interval '30 days' where tenant_id = '78000000-0000-0000-0000-000000000020';
+update public.tenant_subscriptions set current_period_end = now() + interval '40 days' where tenant_id = '78000000-0000-0000-0000-000000000020';
+select is((select s.unblocked_until::text from public.tenant_subscriptions s where s.tenant_id = '78000000-0000-0000-0000-000000000020'), null, 'mudar o fim do periodo pago tira o desbloqueio');
+update public.tenant_subscriptions set unblocked_until = now() + interval '30 days' where tenant_id = '78000000-0000-0000-0000-000000000020';
+update public.tenant_subscriptions set first_failed_at = now() - interval '2 days' where tenant_id = '78000000-0000-0000-0000-000000000020';
+select is((select s.unblocked_until::text from public.tenant_subscriptions s where s.tenant_id = '78000000-0000-0000-0000-000000000020'), null, 'mudar a data da primeira recusa tira o desbloqueio');
+update public.tenant_subscriptions set unblocked_until = now() + interval '30 days' where tenant_id = '78000000-0000-0000-0000-000000000020';
+update public.tenant_subscriptions set canceled_at = now() - interval '2 days' where tenant_id = '78000000-0000-0000-0000-000000000020';
+select is((select s.unblocked_until::text from public.tenant_subscriptions s where s.tenant_id = '78000000-0000-0000-0000-000000000020'), null, 'mudar a data do cancelamento tira o desbloqueio');
+
+-- L. Os avisos por e-mail respeitam o desbloqueio ----------------------------------------------------------------------------------
+select private.enqueue_billing_notices(now());
+select is((select count(*)::int from public.billing_notices where tenant_id = '78000000-0000-0000-0000-000000000024' and kind = 'blocked'), 1, 'a barbearia bloqueada ha 1 hora (pagamento recusado) ganha o aviso de bloqueio');
+delete from public.billing_notices where tenant_id = '78000000-0000-0000-0000-000000000024';
+select set_config('request.jwt.claim.sub', '78000000-0000-0000-0000-0000000000a1', true);
+set local role authenticated;
+select lives_ok($$select public.admin_unblock_tenant('78000000-0000-0000-0000-000000000024', date '2040-03-10', 'motivo')$$, 'o Proprietario desbloqueia essa barbearia antes de o aviso sair');
+reset role;
+select private.enqueue_billing_notices(now());
+select is((select count(*)::int from public.billing_notices where tenant_id = '78000000-0000-0000-0000-000000000024'), 0, 'desbloqueada, ela nao ganha o aviso de bloqueio: o Estado de Acesso dela e liberado com aviso');
+select is(private.billing_notice_is_current('78000000-0000-0000-0000-000000000024', 'blocked', (select s.blocked_at from public.tenant_subscriptions s where s.tenant_id = '78000000-0000-0000-0000-000000000024'), now()), false, 'o aviso de bloqueio que ja estivesse na fila deixa de valer');
+select is(private.billing_notice_is_current('78000000-0000-0000-0000-000000000024', 'blocked', (select s.blocked_at from public.tenant_subscriptions s where s.tenant_id = '78000000-0000-0000-0000-000000000024'), timestamptz '2040-03-11 04:00:00+00'), false, 'o aviso do bloqueio de antes nao volta: o acesso fechou de novo no fim do desbloqueio, e e essa a data do aviso');
+select private.enqueue_billing_notices(timestamptz '2040-03-11 04:00:00+00');
+select is((select count(*)::int from public.billing_notices where tenant_id = '78000000-0000-0000-0000-000000000024' and kind = 'blocked' and ref_at = (select s.unblocked_until from public.tenant_subscriptions s where s.tenant_id = '78000000-0000-0000-0000-000000000024')), 1, 'acabado o desbloqueio sai o aviso de bloqueio, com a data em que o acesso fechou de novo');
+select is(private.billing_notice_is_current('78000000-0000-0000-0000-000000000024', 'blocked', (select s.unblocked_until from public.tenant_subscriptions s where s.tenant_id = '78000000-0000-0000-0000-000000000024'), timestamptz '2040-03-11 04:00:00+00'), true, 'e esse aviso vale');
+
+-- M. Os auxiliares privados nao sao executaveis por quem nao e o dono -------------------------------------------------------------
+select ok(
+  not has_function_privilege('anon', 'private.assert_saas_admin()', 'execute')
+    and not has_function_privilege('authenticated', 'private.assert_saas_admin()', 'execute')
+    and not has_function_privilege('anon', 'private.end_of_day_in_tenant(uuid, date)', 'execute')
+    and not has_function_privilege('authenticated', 'private.end_of_day_in_tenant(uuid, date)', 'execute')
+    and not has_function_privilege('anon', 'private.log_admin_action(text, uuid, jsonb)', 'execute')
+    and not has_function_privilege('authenticated', 'private.log_admin_action(text, uuid, jsonb)', 'execute'),
+  'os auxiliares privados das funcoes do Proprietario nao sao executaveis por anon nem authenticated'
+);
+select set_config('request.jwt.claim.sub', '78000000-0000-0000-0000-0000000000a4', true);
+set local role authenticated;
+select throws_ok($$select private.end_of_day_in_tenant('78000000-0000-0000-0000-000000000001', date '2040-03-10')$$, '42501', null, 'o Gerente sem barbearia (tenant_id nulo) nao chama o fim do dia');
+select throws_ok($$select private.log_admin_action('admin_falso', '78000000-0000-0000-0000-000000000001', '{}'::jsonb)$$, '42501', null, 'nem grava na trilha das acoes do Proprietario');
+select throws_ok($$select private.assert_saas_admin()$$, '42501', null, 'nem chama a guarda');
+reset role;
+set local role anon;
+select throws_ok($$select private.log_admin_action('admin_falso', '78000000-0000-0000-0000-000000000001', '{}'::jsonb)$$, '42501', null, 'e quem nao esta logado (anon) tambem nao grava na trilha');
 reset role;
 
 -- I. A rotina diaria ------------------------------------------------------------------------------------------------------------
