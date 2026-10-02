@@ -281,7 +281,7 @@ O limite passa a valer no banco. Conta profissional ativo (não excluído). O Ge
 - O aceite é registrado por usuário, com a versão dos termos e a data.
 - O cadastro exige marcar o aceite. O Gerente que ainda não aceitou a versão atual vê o aceite antes de entrar no painel.
 - O texto é escrito como rascunho técnico nesta spec e revisado por advogado antes do lançamento em prod.
-- (Ticket 16: a versão dos textos é a data de publicação (AAAA-MM-DD) e mora no front; o aceite fica em `terms_acceptances` (uma linha por usuário e versão, com a data do banco), gravado pela função `accept_terms` ou, no cadastro, pelo gatilho a partir de `terms_version`; o porteiro do Gerente mostra o aceite antes do painel, do onboarding e da tela de bloqueio, e abre o painel se a leitura do aceite falha; os pontos que o advogado precisa rever estão no doc do ticket.)
+- (Ticket 16: a versão dos textos é a data de publicação (AAAA-MM-DD, uma data que existe e não futura) e mora no front; o aceite fica em `terms_acceptances` (uma linha por usuário e versão, com a data do banco), gravado pela função `accept_terms` ou, no cadastro, pelo gatilho a partir de `terms_version`; o aceite condiciona entrar e contratar, e não sair: o porteiro do Gerente mostra o aceite antes do painel e do onboarding e, na tela de bloqueio, no lugar do "Pagar" (exportar os dados e cancelar a assinatura nunca ficam atrás dele), e abre o painel se a leitura do aceite falha; os pontos que o advogado precisa rever estão no doc do ticket.)
 
 ### Ambientes e credenciais
 
