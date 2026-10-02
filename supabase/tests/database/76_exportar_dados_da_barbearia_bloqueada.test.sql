@@ -1,11 +1,14 @@
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(11);
+select plan(30);
 
 -- Spec 052, ticket 14: exportar dados. A exportacao e feita pelo front, com a sessao do proprio Gerente: le os clientes, os
 -- agendamentos e as comandas (e os nomes de profissionais, servicos e produtos, e os itens e pagamentos das comandas). Nada de
 -- novo no banco; este teste prova a premissa da spec: o bloqueio do painel e so no front, entao o Gerente de uma barbearia
--- BLOQUEADA continua lendo todos os dados da barbearia dele (e so os dele), pelas mesmas politicas de leitura por tenant.
+-- BLOQUEADA continua lendo todos os dados da barbearia dele (e so os dele), pelas mesmas politicas de leitura por tenant: com o
+-- motivo do bloqueio que for (os sete da tela de bloqueio), com a invariante conferida nas politicas (nenhuma olha a assinatura) e
+-- com os indices da leitura por chave no lugar. Tambem prova que a barbearia bloqueada deixa o rastro da exportacao na trilha de
+-- auditoria (public.log_audit_event), que e como o front registra quem exportou os dados.
 
 insert into public.tenants(id, name, email, phone, slug, onboarding_completed)
 values
@@ -90,6 +93,19 @@ select is(
 select set_config('t76.comandas', (select count(*)::text from public.comandas where tenant_id = '76000000-0000-0000-0000-000000000001'), true);
 select set_config('t76.itens', (select count(*)::text from public.comanda_itens where tenant_id = '76000000-0000-0000-0000-000000000001'), true);
 select set_config('t76.pagamentos', (select count(*)::text from public.comanda_pagamentos where tenant_id = '76000000-0000-0000-0000-000000000001'), true);
+-- Soma das linhas das oito tabelas da barbearia: o que o Gerente tem de ler, qualquer que seja o motivo do bloqueio.
+select set_config('t76.total', (
+  select count(*)::text from (
+    select 1 from public.customers where tenant_id = '76000000-0000-0000-0000-000000000001'
+    union all select 1 from public.appointments where tenant_id = '76000000-0000-0000-0000-000000000001'
+    union all select 1 from public.comandas where tenant_id = '76000000-0000-0000-0000-000000000001'
+    union all select 1 from public.comanda_itens where tenant_id = '76000000-0000-0000-0000-000000000001'
+    union all select 1 from public.comanda_pagamentos where tenant_id = '76000000-0000-0000-0000-000000000001'
+    union all select 1 from public.professionals where tenant_id = '76000000-0000-0000-0000-000000000001'
+    union all select 1 from public.services where tenant_id = '76000000-0000-0000-0000-000000000001'
+    union all select 1 from public.products where tenant_id = '76000000-0000-0000-0000-000000000001'
+  ) todo
+), true);
 
 -- O Gerente bloqueado le tudo o que a exportacao precisa, so da barbearia dele ------------------------------------------------
 select set_config('request.jwt.claim.sub', '76000000-0000-0000-0000-0000000000a1', true);
@@ -149,6 +165,235 @@ select is(
   'o Gerente sem barbearia (tenant_id nulo) nao le nenhum dado das barbearias'
 );
 reset role;
+
+
+-- A invariante: nenhuma politica de leitura das oito tabelas olha a assinatura ou o Estado de Acesso -------------------------------
+select is(
+  (select count(*)::int from pg_policies
+   where schemaname = 'public'
+     and tablename in ('customers', 'appointments', 'comandas', 'comanda_itens', 'comanda_pagamentos', 'professionals', 'services', 'products')
+     and cmd in ('SELECT', 'ALL')),
+  8,
+  'cada uma das oito tabelas tem a sua politica de leitura (8 de SELECT entre as 29 politicas das tabelas)'
+);
+select is(
+  (select count(*)::int from pg_policies
+   where schemaname = 'public'
+     and tablename in ('customers', 'appointments', 'comandas', 'comanda_itens', 'comanda_pagamentos', 'professionals', 'services', 'products')
+     and cmd in ('SELECT', 'ALL')
+     and (coalesce(qual, '') || ' ' || coalesce(with_check, '')) ~* 'tenant_access_state|subscription_access_state|tenant_subscriptions|blocked_reason|access_state'),
+  0,
+  'nenhuma politica de leitura das oito tabelas olha a assinatura nem o Estado de Acesso'
+);
+
+-- Os indices da leitura por chave (a exportacao le por `id > ultimo id`, em ordem de `id`, dentro de uma barbearia) ---------------
+select is(
+  (select count(*)::int from pg_indexes
+   where schemaname = 'public'
+     and indexname in ('idx_customers_tenant_id_id', 'idx_appointments_tenant_id_id', 'idx_comandas_tenant_id_id', 'idx_comanda_itens_tenant_id_id', 'idx_comanda_pagamentos_tenant_id_id')
+     and indexdef ~ '\(tenant_id, id\)$'),
+  5,
+  'as cinco tabelas grandes tem o indice (tenant_id, id) da leitura por chave'
+);
+
+-- O Gerente bloqueado le tudo, com cada motivo de bloqueio que a tela de bloqueio conhece -----------------------------------------
+select set_config('request.jwt.claim.sub', '76000000-0000-0000-0000-0000000000a1', true);
+
+-- Com o teste vencido (status trialing) ------------------------------------------------------------------------------------------------------------
+delete from public.tenant_subscriptions where tenant_id = '76000000-0000-0000-0000-000000000001';
+insert into public.tenant_subscriptions(tenant_id, plan_id, status, trial_ends_at) values ('76000000-0000-0000-0000-000000000001', 'b3fa7384-d113-4a1b-a5ed-1efeb7e51c22', 'trialing', now() - interval '1 day');
+select is(
+  (select e.access || '/' || e.reason from private.tenant_access_state('76000000-0000-0000-0000-000000000001') e),
+  'blocked/trial_expired',
+  'a barbearia esta bloqueada: o teste vencido (status trialing)'
+);
+set local role authenticated;
+select is(
+  (select count(*)::int from (
+    select 1 from public.customers where tenant_id = '76000000-0000-0000-0000-000000000001'
+    union all select 1 from public.appointments where tenant_id = '76000000-0000-0000-0000-000000000001'
+    union all select 1 from public.comandas where tenant_id = '76000000-0000-0000-0000-000000000001'
+    union all select 1 from public.comanda_itens where tenant_id = '76000000-0000-0000-0000-000000000001'
+    union all select 1 from public.comanda_pagamentos where tenant_id = '76000000-0000-0000-0000-000000000001'
+    union all select 1 from public.professionals where tenant_id = '76000000-0000-0000-0000-000000000001'
+    union all select 1 from public.services where tenant_id = '76000000-0000-0000-0000-000000000001'
+    union all select 1 from public.products where tenant_id = '76000000-0000-0000-0000-000000000001'
+  ) lido),
+  current_setting('t76.total')::int,
+  'com o teste vencido (status trialing) o Gerente le tudo o que a exportacao precisa'
+);
+reset role;
+
+-- Com o pagamento recusado ha 6 dias ------------------------------------------------------------------------------------------------------------
+delete from public.tenant_subscriptions where tenant_id = '76000000-0000-0000-0000-000000000001';
+insert into public.tenant_subscriptions(tenant_id, plan_id, status, first_failed_at, current_period_end) values ('76000000-0000-0000-0000-000000000001', 'b3fa7384-d113-4a1b-a5ed-1efeb7e51c22', 'past_due', now() - interval '6 days', now() - interval '6 days');
+select is(
+  (select e.access || '/' || e.reason from private.tenant_access_state('76000000-0000-0000-0000-000000000001') e),
+  'blocked/payment_failed',
+  'a barbearia esta bloqueada: o pagamento recusado ha 6 dias'
+);
+set local role authenticated;
+select is(
+  (select count(*)::int from (
+    select 1 from public.customers where tenant_id = '76000000-0000-0000-0000-000000000001'
+    union all select 1 from public.appointments where tenant_id = '76000000-0000-0000-0000-000000000001'
+    union all select 1 from public.comandas where tenant_id = '76000000-0000-0000-0000-000000000001'
+    union all select 1 from public.comanda_itens where tenant_id = '76000000-0000-0000-0000-000000000001'
+    union all select 1 from public.comanda_pagamentos where tenant_id = '76000000-0000-0000-0000-000000000001'
+    union all select 1 from public.professionals where tenant_id = '76000000-0000-0000-0000-000000000001'
+    union all select 1 from public.services where tenant_id = '76000000-0000-0000-0000-000000000001'
+    union all select 1 from public.products where tenant_id = '76000000-0000-0000-0000-000000000001'
+  ) lido),
+  current_setting('t76.total')::int,
+  'com o pagamento recusado ha 6 dias o Gerente le tudo o que a exportacao precisa'
+);
+reset role;
+
+-- Com a assinatura cancelada com o periodo pago ja vencido ------------------------------------------------------------------------------------------------------------
+delete from public.tenant_subscriptions where tenant_id = '76000000-0000-0000-0000-000000000001';
+insert into public.tenant_subscriptions(tenant_id, plan_id, status, canceled_at, current_period_end) values ('76000000-0000-0000-0000-000000000001', 'b3fa7384-d113-4a1b-a5ed-1efeb7e51c22', 'canceled', now() - interval '10 days', now() - interval '5 days');
+select is(
+  (select e.access || '/' || e.reason from private.tenant_access_state('76000000-0000-0000-0000-000000000001') e),
+  'blocked/canceled',
+  'a barbearia esta bloqueada: a assinatura cancelada com o periodo pago ja vencido'
+);
+set local role authenticated;
+select is(
+  (select count(*)::int from (
+    select 1 from public.customers where tenant_id = '76000000-0000-0000-0000-000000000001'
+    union all select 1 from public.appointments where tenant_id = '76000000-0000-0000-0000-000000000001'
+    union all select 1 from public.comandas where tenant_id = '76000000-0000-0000-0000-000000000001'
+    union all select 1 from public.comanda_itens where tenant_id = '76000000-0000-0000-0000-000000000001'
+    union all select 1 from public.comanda_pagamentos where tenant_id = '76000000-0000-0000-0000-000000000001'
+    union all select 1 from public.professionals where tenant_id = '76000000-0000-0000-0000-000000000001'
+    union all select 1 from public.services where tenant_id = '76000000-0000-0000-0000-000000000001'
+    union all select 1 from public.products where tenant_id = '76000000-0000-0000-0000-000000000001'
+  ) lido),
+  current_setting('t76.total')::int,
+  'com a assinatura cancelada com o periodo pago ja vencido o Gerente le tudo o que a exportacao precisa'
+);
+reset role;
+
+-- Com a cortesia vencida ------------------------------------------------------------------------------------------------------------
+delete from public.tenant_subscriptions where tenant_id = '76000000-0000-0000-0000-000000000001';
+insert into public.tenant_subscriptions(tenant_id, plan_id, status, courtesy_ends_at) values ('76000000-0000-0000-0000-000000000001', 'b3fa7384-d113-4a1b-a5ed-1efeb7e51c22', 'courtesy', now() - interval '1 day');
+select is(
+  (select e.access || '/' || e.reason from private.tenant_access_state('76000000-0000-0000-0000-000000000001') e),
+  'blocked/courtesy_expired',
+  'a barbearia esta bloqueada: a cortesia vencida'
+);
+set local role authenticated;
+select is(
+  (select count(*)::int from (
+    select 1 from public.customers where tenant_id = '76000000-0000-0000-0000-000000000001'
+    union all select 1 from public.appointments where tenant_id = '76000000-0000-0000-0000-000000000001'
+    union all select 1 from public.comandas where tenant_id = '76000000-0000-0000-0000-000000000001'
+    union all select 1 from public.comanda_itens where tenant_id = '76000000-0000-0000-0000-000000000001'
+    union all select 1 from public.comanda_pagamentos where tenant_id = '76000000-0000-0000-0000-000000000001'
+    union all select 1 from public.professionals where tenant_id = '76000000-0000-0000-0000-000000000001'
+    union all select 1 from public.services where tenant_id = '76000000-0000-0000-0000-000000000001'
+    union all select 1 from public.products where tenant_id = '76000000-0000-0000-0000-000000000001'
+  ) lido),
+  current_setting('t76.total')::int,
+  'com a cortesia vencida o Gerente le tudo o que a exportacao precisa'
+);
+reset role;
+
+-- Com o pagamento estornado ------------------------------------------------------------------------------------------------------------
+delete from public.tenant_subscriptions where tenant_id = '76000000-0000-0000-0000-000000000001';
+insert into public.tenant_subscriptions(tenant_id, plan_id, status, blocked_at, blocked_reason) values ('76000000-0000-0000-0000-000000000001', 'b3fa7384-d113-4a1b-a5ed-1efeb7e51c22', 'blocked', now() - interval '1 day', 'refunded');
+select is(
+  (select e.access || '/' || e.reason from private.tenant_access_state('76000000-0000-0000-0000-000000000001') e),
+  'blocked/refunded',
+  'a barbearia esta bloqueada: o pagamento estornado'
+);
+set local role authenticated;
+select is(
+  (select count(*)::int from (
+    select 1 from public.customers where tenant_id = '76000000-0000-0000-0000-000000000001'
+    union all select 1 from public.appointments where tenant_id = '76000000-0000-0000-0000-000000000001'
+    union all select 1 from public.comandas where tenant_id = '76000000-0000-0000-0000-000000000001'
+    union all select 1 from public.comanda_itens where tenant_id = '76000000-0000-0000-0000-000000000001'
+    union all select 1 from public.comanda_pagamentos where tenant_id = '76000000-0000-0000-0000-000000000001'
+    union all select 1 from public.professionals where tenant_id = '76000000-0000-0000-0000-000000000001'
+    union all select 1 from public.services where tenant_id = '76000000-0000-0000-0000-000000000001'
+    union all select 1 from public.products where tenant_id = '76000000-0000-0000-0000-000000000001'
+  ) lido),
+  current_setting('t76.total')::int,
+  'com o pagamento estornado o Gerente le tudo o que a exportacao precisa'
+);
+reset role;
+
+-- Com o pagamento contestado (chargeback) ------------------------------------------------------------------------------------------------------------
+delete from public.tenant_subscriptions where tenant_id = '76000000-0000-0000-0000-000000000001';
+insert into public.tenant_subscriptions(tenant_id, plan_id, status, blocked_at, blocked_reason) values ('76000000-0000-0000-0000-000000000001', 'b3fa7384-d113-4a1b-a5ed-1efeb7e51c22', 'blocked', now() - interval '1 day', 'charged_back');
+select is(
+  (select e.access || '/' || e.reason from private.tenant_access_state('76000000-0000-0000-0000-000000000001') e),
+  'blocked/charged_back',
+  'a barbearia esta bloqueada: o pagamento contestado (chargeback)'
+);
+set local role authenticated;
+select is(
+  (select count(*)::int from (
+    select 1 from public.customers where tenant_id = '76000000-0000-0000-0000-000000000001'
+    union all select 1 from public.appointments where tenant_id = '76000000-0000-0000-0000-000000000001'
+    union all select 1 from public.comandas where tenant_id = '76000000-0000-0000-0000-000000000001'
+    union all select 1 from public.comanda_itens where tenant_id = '76000000-0000-0000-0000-000000000001'
+    union all select 1 from public.comanda_pagamentos where tenant_id = '76000000-0000-0000-0000-000000000001'
+    union all select 1 from public.professionals where tenant_id = '76000000-0000-0000-0000-000000000001'
+    union all select 1 from public.services where tenant_id = '76000000-0000-0000-0000-000000000001'
+    union all select 1 from public.products where tenant_id = '76000000-0000-0000-0000-000000000001'
+  ) lido),
+  current_setting('t76.total')::int,
+  'com o pagamento contestado (chargeback) o Gerente le tudo o que a exportacao precisa'
+);
+reset role;
+
+-- Com o bloqueio manual do Proprietario (sem motivo) ------------------------------------------------------------------------------------------------------------
+delete from public.tenant_subscriptions where tenant_id = '76000000-0000-0000-0000-000000000001';
+insert into public.tenant_subscriptions(tenant_id, plan_id, status, blocked_at) values ('76000000-0000-0000-0000-000000000001', 'b3fa7384-d113-4a1b-a5ed-1efeb7e51c22', 'blocked', now() - interval '1 day');
+select is(
+  (select e.access || '/' || e.reason from private.tenant_access_state('76000000-0000-0000-0000-000000000001') e),
+  'blocked/blocked',
+  'a barbearia esta bloqueada: o bloqueio manual do Proprietario (sem motivo)'
+);
+set local role authenticated;
+select is(
+  (select count(*)::int from (
+    select 1 from public.customers where tenant_id = '76000000-0000-0000-0000-000000000001'
+    union all select 1 from public.appointments where tenant_id = '76000000-0000-0000-0000-000000000001'
+    union all select 1 from public.comandas where tenant_id = '76000000-0000-0000-0000-000000000001'
+    union all select 1 from public.comanda_itens where tenant_id = '76000000-0000-0000-0000-000000000001'
+    union all select 1 from public.comanda_pagamentos where tenant_id = '76000000-0000-0000-0000-000000000001'
+    union all select 1 from public.professionals where tenant_id = '76000000-0000-0000-0000-000000000001'
+    union all select 1 from public.services where tenant_id = '76000000-0000-0000-0000-000000000001'
+    union all select 1 from public.products where tenant_id = '76000000-0000-0000-0000-000000000001'
+  ) lido),
+  current_setting('t76.total')::int,
+  'com o bloqueio manual do Proprietario (sem motivo) o Gerente le tudo o que a exportacao precisa'
+);
+reset role;
+
+-- A barbearia bloqueada deixa o rastro da exportacao na trilha de auditoria ----------------------------------------------------
+-- O front chama public.log_audit_event depois de montar os arquivos: a funcao guarda a barbearia e o usuario DA SESSAO (ninguem
+-- registra em nome de outra barbearia) e nao olha a assinatura.
+set local role authenticated;
+select ok(
+  public.log_audit_event('tenant_data_exported', 'tenant', '{"arquivos": 3, "linhas": {"clientes": 2, "agendamentos": 2, "comandas": 1}}'::jsonb) is not null,
+  'o Gerente da barbearia bloqueada registra a exportacao na trilha de auditoria'
+);
+reset role;
+select is(
+  (select count(*)::int from public.audit_logs
+   where tenant_id = '76000000-0000-0000-0000-000000000001'
+     and user_id = '76000000-0000-0000-0000-0000000000a1'
+     and action = 'tenant_data_exported'
+     and resource = 'tenant'
+     and details->>'arquivos' = '3'
+     and details->'linhas'->>'clientes' = '2'),
+  1,
+  'a trilha guarda a barbearia e o usuario da sessao e o que saiu, sem nenhum dado de cliente'
+);
 
 select * from finish();
 rollback;
