@@ -13,7 +13,7 @@ import type {
   RegistrationOrigemItem,
   RelatorioClientesBucket,
 } from '../../../modules/relatorios/types';
-import { formatDisplayDate, formatPercent } from '../../../modules/relatorios/formatacao';
+import { formatDisplayDate, formatPercent, formatRegistrationOriginLabel } from '../../../modules/relatorios/formatacao';
 import { Button } from '../../../components/ui/forms/Button';
 import { EmptyState } from '../../../components/ui/data-display/EmptyState';
 import { Skeleton } from '../../../components/ui/data-display/Skeleton';
@@ -22,7 +22,7 @@ import { ClientesResumo } from './clientes/ClientesResumo';
 import { ClientesGrafico } from './clientes/ClientesGrafico';
 import { ClientesTabela } from './clientes/ClientesTabela';
 import { ClientesUmaVisitaLista } from './clientes/ClientesUmaVisitaLista';
-import { ClientesOrigemDosClientes, formatRegistrationOriginLabel } from './clientes/ClientesOrigemDosClientes';
+import { ClientesOrigemDosClientes } from './clientes/ClientesOrigemDosClientes';
 
 function formatBucketPeriodo(bucket: RelatorioClientesBucket): string {
   return bucket.start_date === bucket.end_date

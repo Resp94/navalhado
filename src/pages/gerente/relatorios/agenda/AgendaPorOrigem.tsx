@@ -2,20 +2,8 @@ import React from 'react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../../../../components/ui/feedback/Card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../../../components/ui/feedback/DataTable';
 import { EmptyState } from '../../../../components/ui/data-display/EmptyState';
-import { formatPercent } from '../../../../modules/relatorios/formatacao';
-import type { RelatorioAgendaOrigem, RelatorioAgendaOrigemTotais } from '../../../../modules/relatorios/types';
-
-/** Rótulo de exibição de cada origem do Agendamento (spec 038, ticket 07). */
-export const ORIGEM_LABELS: Record<RelatorioAgendaOrigem, string> = {
-  manual: 'Painel',
-  online: 'Link público',
-  client_channel: 'Canal do Cliente',
-  whatsapp: 'WhatsApp',
-};
-
-export function formatOrigemLabel(origin: string): string {
-  return ORIGEM_LABELS[origin as RelatorioAgendaOrigem] ?? origin;
-}
+import { formatOrigemLabel, formatPercent } from '../../../../modules/relatorios/formatacao';
+import type { RelatorioAgendaOrigemTotais } from '../../../../modules/relatorios/types';
 
 export interface AgendaPorOrigemProps {
   origins: RelatorioAgendaOrigemTotais[];

@@ -1,4 +1,31 @@
 import { formatCurrency } from '../../lib/currency';
+import type { RelatorioAgendaOrigem, RelatorioClientesRegistrationOrigin } from './types';
+
+/** Rótulo de exibição de cada origem do Agendamento (spec 038, ticket 07). */
+export const ORIGEM_LABELS: Record<RelatorioAgendaOrigem, string> = {
+  manual: 'Painel',
+  online: 'Link público',
+  client_channel: 'Canal do Cliente',
+  whatsapp: 'WhatsApp',
+};
+
+export function formatOrigemLabel(origin: string): string {
+  return ORIGEM_LABELS[origin as RelatorioAgendaOrigem] ?? origin;
+}
+
+/** Rótulo de exibição de cada origem do cadastro (spec 038, ticket 11). */
+export const REGISTRATION_ORIGIN_LABELS: Record<RelatorioClientesRegistrationOrigin, string> = {
+  balcao: 'Balcão',
+  agenda: 'Agenda',
+  online: 'Link público',
+  canal_cliente: 'Canal do Cliente',
+  whatsapp_bot: 'WhatsApp',
+  importacao: 'Importação',
+};
+
+export function formatRegistrationOriginLabel(origin: string): string {
+  return REGISTRATION_ORIGIN_LABELS[origin as RelatorioClientesRegistrationOrigin] ?? origin;
+}
 
 /**
  * Formatação de data compartilhada pelo Módulo de Relatórios (spec 038):

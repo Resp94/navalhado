@@ -12,13 +12,13 @@ import type {
   RelatorioAgendaOrigemTotais,
   RelatorioAgendaProfissionalTotais,
 } from '../../../modules/relatorios/types';
-import { formatPercent } from '../../../modules/relatorios/formatacao';
+import { formatOrigemLabel, formatPercent } from '../../../modules/relatorios/formatacao';
 import { Button } from '../../../components/ui/forms/Button';
 import { EmptyState } from '../../../components/ui/data-display/EmptyState';
 import { Skeleton } from '../../../components/ui/data-display/Skeleton';
 import { ExportarCsvButton } from '../../../components/ui/data-display/ExportarCsvButton';
 import { AgendaResumo } from './agenda/AgendaResumo';
-import { AgendaPorOrigem, formatOrigemLabel } from './agenda/AgendaPorOrigem';
+import { AgendaPorOrigem } from './agenda/AgendaPorOrigem';
 import { AgendaPorProfissional } from './agenda/AgendaPorProfissional';
 import { AgendaMotivosCancelamento } from './agenda/AgendaMotivosCancelamento';
 import {

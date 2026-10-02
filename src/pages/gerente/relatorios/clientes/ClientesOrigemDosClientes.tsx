@@ -2,27 +2,12 @@ import React from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../../../components/ui/feedback/DataTable';
 import { PercentageBar } from '../../../../components/ui/data-display/PercentageBar';
 import { EmptyState } from '../../../../components/ui/data-display/EmptyState';
-import { formatPercent } from '../../../../modules/relatorios/formatacao';
+import { formatPercent, formatRegistrationOriginLabel } from '../../../../modules/relatorios/formatacao';
 import type {
   AcquisitionChannelItem,
   RegistrationOrigemItem,
-  RelatorioClientesRegistrationOrigin,
   RelatorioClientesRegistrations,
 } from '../../../../modules/relatorios/types';
-
-/** Rótulo de exibição de cada origem do cadastro (spec 038, ticket 11). */
-export const REGISTRATION_ORIGIN_LABELS: Record<RelatorioClientesRegistrationOrigin, string> = {
-  balcao: 'Balcão',
-  agenda: 'Agenda',
-  online: 'Link público',
-  canal_cliente: 'Canal do Cliente',
-  whatsapp_bot: 'WhatsApp',
-  importacao: 'Importação',
-};
-
-export function formatRegistrationOriginLabel(origin: string): string {
-  return REGISTRATION_ORIGIN_LABELS[origin as RelatorioClientesRegistrationOrigin] ?? origin;
-}
 
 const NAO_INFORMADO = 'Não informado';
 
