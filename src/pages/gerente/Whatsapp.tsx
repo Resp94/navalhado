@@ -210,14 +210,16 @@ export const Whatsapp: React.FC = () => {
       try {
         const { data: authData } = await supabase.auth.getUser();
         if (authData?.user?.id) {
-          const { data: userProfile } = await supabase
-            .from('users')
+          // O telefone do Gerente fica no profissional vinculado ao login dele: public.users não tem coluna phone.
+          const { data: profissional } = await supabase
+            .from('professionals')
             .select('phone')
-            .eq('id', authData.user.id)
+            .eq('user_id', authData.user.id)
+            .is('deleted_at', null)
             .maybeSingle();
-          if (userProfile?.phone) {
-            setManagerPhone(userProfile.phone);
-            setTestPhoneForTemplate(userProfile.phone);
+          if (profissional?.phone) {
+            setManagerPhone(profissional.phone);
+            setTestPhoneForTemplate(profissional.phone);
           }
         }
       } catch (err) {

@@ -26,7 +26,12 @@ const {
   mockSingle,
   mockFunctionsInvoke,
   mockRealtimeCallback,
-  mockChannel
+  mockChannel,
+  mockGetUser,
+  mockProfessionalSelect,
+  mockProfessionalEq,
+  mockProfessionalIs,
+  mockProfessionalMaybeSingle
 } = vi.hoisted(() => {
   const mockAddToast = vi.fn();
   const mockMaybeSingle = vi.fn();
@@ -36,6 +41,12 @@ const {
   const mockEq = vi.fn();
   const mockSingle = vi.fn();
   const mockFunctionsInvoke = vi.fn();
+  // O telefone do Gerente vem do profissional vinculado ao login dele: tabela, colunas e filtros têm mocks próprios.
+  const mockGetUser = vi.fn();
+  const mockProfessionalSelect = vi.fn();
+  const mockProfessionalEq = vi.fn();
+  const mockProfessionalIs = vi.fn();
+  const mockProfessionalMaybeSingle = vi.fn();
   const mockRealtimeCallback: { current?: (payload: any) => void } = {};
   const mockChannel = {
     on: vi.fn(),
@@ -52,10 +63,21 @@ const {
   const mockSupabaseClient = {
     channel: vi.fn().mockReturnValue(mockChannel),
     removeChannel: vi.fn(),
+    auth: {
+      getUser: mockGetUser,
+    },
     functions: {
       invoke: mockFunctionsInvoke,
     },
-    from: vi.fn().mockImplementation(() => ({
+    from: vi.fn().mockImplementation((tabela?: string) => tabela === 'professionals' ? ({
+      select: mockProfessionalSelect.mockImplementation(() => ({
+        eq: mockProfessionalEq.mockImplementation(() => ({
+          is: mockProfessionalIs.mockImplementation(() => ({
+            maybeSingle: mockProfessionalMaybeSingle,
+          })),
+        })),
+      })),
+    }) : ({
       select: mockSelect.mockImplementation(() => ({
         eq: mockEq.mockImplementation(() => ({
           maybeSingle: mockMaybeSingle,
@@ -79,17 +101,22 @@ const {
     })),
   };
 
-  return { 
-    mockAddToast, 
-    mockSupabaseClient, 
-    mockMaybeSingle, 
-    mockUpdate, 
-    mockSelect, 
+  return {
+    mockAddToast,
+    mockSupabaseClient,
+    mockMaybeSingle,
+    mockUpdate,
+    mockSelect,
     mockEq,
     mockSingle,
     mockFunctionsInvoke,
     mockRealtimeCallback,
-    mockChannel
+    mockChannel,
+    mockGetUser,
+    mockProfessionalSelect,
+    mockProfessionalEq,
+    mockProfessionalIs,
+    mockProfessionalMaybeSingle
   };
 });
 
@@ -117,6 +144,9 @@ describe('Whatsapp Config Page - TDD', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockRealtimeCallback.current = undefined;
+    // Por padrão ninguém está logado e não há profissional vinculado: o telefone do Gerente só existe nos testes que o pedem.
+    mockGetUser.mockResolvedValue({ data: { user: null } });
+    mockProfessionalMaybeSingle.mockResolvedValue({ data: null, error: null });
   });
 
   afterEach(() => {
@@ -957,5 +987,66 @@ describe('Whatsapp Config Page - TDD', () => {
       expect(phoneInput.value).toBe('11911112222');
     });
   });
-});
 
+  // Achado do teste no DEV (2026-10-03): a tela pedia o telefone do Gerente a public.users, que nunca teve a coluna phone, e cada
+  // carga de /whatsapp dava 400. O telefone do Gerente está no profissional vinculado ao login dele.
+  describe('Telefone do Gerente para testar o modelo', () => {
+    const instanciaConectada = {
+      id: 'inst-123',
+      tenant_id: 'tenant-test-id',
+      instance_name: 'nav_estilo_123',
+      status: 'connected',
+      qr_code: null,
+      send_confirmation: true,
+      send_reminders: true,
+      reminder_hours: 2,
+      send_cancellation: true,
+      template_confirmation: 'Olá, {cliente}! Seu agendamento foi confirmado. Link: {link}',
+    };
+
+    beforeEach(() => {
+      mockMaybeSingle.mockResolvedValue({ data: instanciaConectada, error: null });
+      mockGetUser.mockResolvedValue({ data: { user: { id: 'user-gerente' } } });
+    });
+
+    it('pede o telefone ao profissional vinculado ao login do Gerente, e nunca à tabela users', async () => {
+      mockProfessionalMaybeSingle.mockResolvedValue({ data: { phone: '92985209999' }, error: null });
+
+      render(<Whatsapp />);
+
+      await waitFor(() => expect(mockProfessionalMaybeSingle).toHaveBeenCalled());
+      expect(mockSupabaseClient.from).toHaveBeenCalledWith('professionals');
+      expect(mockProfessionalSelect).toHaveBeenCalledWith('phone');
+      expect(mockProfessionalEq).toHaveBeenCalledWith('user_id', 'user-gerente');
+      // Profissional excluído (deleted_at preenchido) não conta.
+      expect(mockProfessionalIs).toHaveBeenCalledWith('deleted_at', null);
+      expect(mockSupabaseClient.from).not.toHaveBeenCalledWith('users');
+    });
+
+    it('preenche o telefone de teste com o do Gerente, e o atalho Usar Meu WhatsApp o devolve depois de o campo ser editado', async () => {
+      mockProfessionalMaybeSingle.mockResolvedValue({ data: { phone: '92985209999' }, error: null });
+
+      render(<Whatsapp />);
+
+      const campo = await screen.findByPlaceholderText('DDD + Número (ex: 11999999999)') as HTMLInputElement;
+      await waitFor(() => expect(campo.value).toBe('92985209999'));
+      expect(screen.queryByRole('button', { name: 'Usar Meu WhatsApp' })).not.toBeInTheDocument();
+
+      fireEvent.change(campo, { target: { value: '11911112222' } });
+      fireEvent.click(await screen.findByRole('button', { name: 'Usar Meu WhatsApp' }));
+
+      expect(campo.value).toBe('92985209999');
+    });
+
+    it('sem profissional vinculado, o campo de teste começa vazio e o atalho não aparece', async () => {
+      render(<Whatsapp />);
+
+      const campo = await screen.findByPlaceholderText('DDD + Número (ex: 11999999999)') as HTMLInputElement;
+      await waitFor(() => expect(mockProfessionalMaybeSingle).toHaveBeenCalled());
+      expect(campo.value).toBe('');
+
+      fireEvent.change(campo, { target: { value: '11911112222' } });
+      expect(screen.queryByRole('button', { name: 'Usar Meu WhatsApp' })).not.toBeInTheDocument();
+    });
+  });
+});
