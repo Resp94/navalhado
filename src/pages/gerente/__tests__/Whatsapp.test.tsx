@@ -1049,4 +1049,82 @@ describe('Whatsapp Config Page - TDD', () => {
       expect(screen.queryByRole('button', { name: 'Usar Meu WhatsApp' })).not.toBeInTheDocument();
     });
   });
+
+  // Achado do teste no DEV (2026-10-03): quando o provedor não responde, a função devolve 502 e o supabase-js troca o corpo por
+  // "Edge Function returned a non-2xx status code". O Gerente lia esse inglês no aviso, em conectar, retomar, desconectar e testar o modelo.
+  describe('Falhas da Edge Function viram texto em português', () => {
+    const TEXTO_TECNICO = 'Edge Function returned a non-2xx status code';
+    const MENSAGEM_DEMOROU = 'O serviço de WhatsApp demorou para responder. Tente de novo em instantes.';
+    const erroDaFuncao = (status?: number) => (status
+      ? { name: 'FunctionsHttpError', message: TEXTO_TECNICO, context: { status } }
+      : { name: 'FunctionsFetchError', message: 'Failed to send a request to the Edge Function' });
+
+    const instancia = (status: string) => ({
+      id: 'inst-123',
+      tenant_id: 'tenant-test-id',
+      instance_name: 'nav_estilo_123',
+      status,
+      qr_code: null,
+      send_confirmation: true,
+      send_reminders: true,
+      reminder_hours: 2,
+      send_cancellation: true,
+      template_confirmation: 'Olá, {cliente}! Seu agendamento foi confirmado. Link: {link}',
+    });
+
+    const acoes = [
+      {
+        nome: 'gerar o QR Code',
+        status: 'disconnected',
+        padrao: 'Erro ao obter QR Code da VPS.',
+        aciona: async () => { fireEvent.click(await screen.findByRole('button', { name: 'Gerar QR Code de Conexão' })); },
+      },
+      {
+        nome: 'retomar a sessão',
+        status: 'hibernated',
+        padrao: 'Erro ao retomar a conexão.',
+        aciona: async () => { fireEvent.click(await screen.findByRole('button', { name: 'Retomar Sessão' })); },
+      },
+      {
+        nome: 'desconectar',
+        status: 'connected',
+        padrao: 'Erro ao desconectar o WhatsApp.',
+        aciona: async () => { fireEvent.click(await screen.findByRole('button', { name: 'Desconectar Aparelho' })); },
+      },
+      {
+        nome: 'testar o modelo',
+        status: 'connected',
+        padrao: 'Erro ao disparar teste do modelo.',
+        aciona: async () => {
+          fireEvent.change(await screen.findByPlaceholderText('DDD + Número (ex: 11999999999)'), { target: { value: '11988887777' } });
+          fireEvent.click(screen.getByRole('button', { name: /Testar/i }));
+        },
+      },
+    ];
+
+    describe.each(acoes)('ao $nome', ({ status, padrao, aciona }) => {
+      it('diz que o WhatsApp demorou para responder quando a função devolve 502', async () => {
+        mockMaybeSingle.mockResolvedValue({ data: instancia(status), error: null });
+        mockFunctionsInvoke.mockResolvedValue({ data: null, error: erroDaFuncao(502) });
+
+        render(<Whatsapp />);
+        await aciona();
+
+        await waitFor(() => expect(mockAddToast).toHaveBeenCalledWith(MENSAGEM_DEMOROU, 'error'));
+        expect(mockAddToast).not.toHaveBeenCalledWith(TEXTO_TECNICO, 'error');
+      });
+
+      it('mostra o texto padrão da ação, e não o do supabase-js, quando o erro não traz o motivo', async () => {
+        mockMaybeSingle.mockResolvedValue({ data: instancia(status), error: null });
+        mockFunctionsInvoke.mockResolvedValue({ data: null, error: erroDaFuncao() });
+
+        render(<Whatsapp />);
+        await aciona();
+
+        await waitFor(() => expect(mockAddToast).toHaveBeenCalledWith(padrao, 'error'));
+        expect(mockAddToast).not.toHaveBeenCalledWith('Failed to send a request to the Edge Function', 'error');
+      });
+    });
+  });
 });
+

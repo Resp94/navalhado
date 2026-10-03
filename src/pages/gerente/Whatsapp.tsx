@@ -32,6 +32,7 @@ import {
   validateWhatsappTemplate,
   SAMPLE_MOCK_VARIABLES,
 } from '../../modules/whatsapp/templates';
+import { mensagemDaFalhaDaFuncao } from './mensagemDaFalhaDaFuncao';
 
 interface WhatsappInstance {
   id: string;
@@ -416,7 +417,7 @@ export const Whatsapp: React.FC = () => {
             return;
           }
         }
-        const errorMsg = funcData?.error || funcError?.message || 'Erro ao obter QR Code da VPS.';
+        const errorMsg = funcData?.error || mensagemDaFalhaDaFuncao(funcError, 'Erro ao obter QR Code da VPS.');
         throw new Error(errorMsg);
       }
 
@@ -445,7 +446,7 @@ export const Whatsapp: React.FC = () => {
           instance_name: instance.instance_name,
         },
       });
-      if (error || data?.error) throw new Error(data?.error || error?.message || 'Erro ao retomar a conexão.');
+      if (error || data?.error) throw new Error(data?.error || mensagemDaFalhaDaFuncao(error, 'Erro ao retomar a conexão.'));
       setInstance((previous) => previous ? {
         ...previous,
         status: data?.status === 'pairing' ? 'connecting' : (data?.status || 'connected'),
@@ -476,7 +477,7 @@ export const Whatsapp: React.FC = () => {
         }
       );
       if (disconnectError || disconnectData?.error) {
-        throw new Error(disconnectData?.error || disconnectError?.message || 'Erro ao desconectar o WhatsApp.');
+        throw new Error(disconnectData?.error || mensagemDaFalhaDaFuncao(disconnectError, 'Erro ao desconectar o WhatsApp.'));
       }
 
       // A Edge Function já gravou 'disconnected' e limpou o QR code.
@@ -642,7 +643,7 @@ export const Whatsapp: React.FC = () => {
       addToast(`Mensagem de teste enviada com sucesso para ${targetPhone}!`, 'success');
     } catch (error: any) {
       console.error('Error sending template test:', error);
-      addToast(error?.message || 'Erro ao disparar teste do modelo.', 'error');
+      addToast(mensagemDaFalhaDaFuncao(error, 'Erro ao disparar teste do modelo.'), 'error');
     } finally {
       setSendingTemplateTest(false);
     }
