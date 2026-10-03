@@ -911,6 +911,57 @@ Deno.test("POST /manage-instance - connect action should authenticate gerente us
   restoreFetch();
 });
 
+// Spec 053, ticket 04: o navegador perde o UPDATE de status e qr_code, e quem os grava e a Edge Function. Se ela passasse
+// a gravar com o JWT de quem chama (um cliente por requisicao), conectar e desconectar dariam 42501 so em producao, e
+// nenhum outro teste veria. Este fixa que toda requisicao ao PostgREST sai com a chave de service_role, mesmo com o JWT
+// do Gerente na entrada.
+Deno.test("POST /manage-instance - writes the instance row with the service role key, never with the caller's JWT", async () => {
+  const originalFetch = globalThis.fetch;
+  const restRequests: Array<{ method: string; apikey: string | null; authorization: string | null }> = [];
+
+  globalThis.fetch = (input: string | URL | Request, init?: RequestInit): Promise<Response> => {
+    const urlStr = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+    const json = (status: number, body: unknown) => Promise.resolve(new Response(JSON.stringify(body), {
+      status,
+      headers: { "Content-Type": "application/json" },
+    }));
+
+    if (urlStr.includes("auth/v1/user")) return json(200, { id: "user-gerente-123", email: "gerente@barbearia.com" });
+    if (urlStr.includes("rest/v1/")) {
+      const headers = new Headers(init?.headers);
+      restRequests.push({
+        method: init?.method || "GET",
+        apikey: headers.get("apikey"),
+        authorization: headers.get("authorization"),
+      });
+      return json(200, urlStr.includes("rest/v1/users")
+        ? { tenant_id: "tenant-456", role: "gerente" }
+        : { instance_token: "mock-instance-key", tenant_id: "tenant-456" });
+    }
+    if (urlStr.includes("mock-vps.com/instance/create")) return json(409, { error: "instance already exists" });
+    if (urlStr.includes("mock-vps.com/instance/connect")) return json(200, { success: true });
+    return json(404, { error: "Mock not configured for " + urlStr });
+  };
+
+  try {
+    const res = await handler(new Request("https://mock-supabase.co/functions/v1/whatsapp-integration/manage-instance", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": "Bearer valid-gerente-jwt-token" },
+      body: JSON.stringify({ action: "connect", instance_id: "inst-123", instance_name: "nav_test", tenant_id: "tenant-456" }),
+    }));
+    assertEquals(res.status, 202);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+
+  // O inicio do pareamento (PATCH) tem de ter sido gravado, e nenhuma requisicao leva a credencial do Gerente.
+  assertEquals(restRequests.some((r) => r.method === "PATCH"), true);
+  for (const request of restRequests) {
+    assertEquals(request.apikey, "mock-service-role-key");
+    assertEquals(request.authorization, "Bearer mock-service-role-key");
+  }
+});
+
 Deno.test("POST /manage-instance - connect action should reject unauthorized user without gerente role", async () => {
   const restoreFetch = setupMockFetch({
     "auth/v1/user": {
