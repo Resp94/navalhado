@@ -1,6 +1,6 @@
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(29);
+select plan(31);
 
 -- Spec 054, tickets 02 a 04: metricas do painel do Proprietario (public.get_admin_dashboard_metrics).
 -- Ticket 02: "Faturamento do mes" e "Evolucao da receita" somam as cobrancas aprovadas (public.billing_charges, status `approved`,
@@ -8,7 +8,7 @@ select plan(29);
 -- estornada e contestada ficam fora. O grafico tem 12 meses, do mais antigo ao atual, com zero no mes sem cobranca, e usa a mesma regra
 -- do cartao. So o Proprietario le (Gerente, Barbeiro, anonimo e Gerente com tenant_id nulo recebem 42501).
 -- Ticket 03: o MRR soma o preco do plano que a proxima cobranca vai cobrar das assinaturas `active` e `past_due` (o plano agendado,
--- quando ha descida agendada); "liberadas" e "bloqueadas" contam pelo Estado de Acesso de agora (private.tenant_access_state), e
+-- quando ha descida agendada); "liberadas" e "bloqueadas" contam pelo Estado de Acesso de agora (private.subscription_access_state), e
 -- barbearia sem assinatura nao entra em nenhum contador.
 -- As barbearias de teste que ja existem no DEV mexem nos numeros, entao cada prova compara o valor de antes com o de depois de
 -- inserir. Plano Tesoura 59,90 (b3fa...c11), Maquina 89,90 (c22), Bancada 159,90 (c33).
@@ -212,6 +212,14 @@ select is(
   (select array_agg(k::text order by k) from jsonb_object_keys(current_setting('t80.depois')::jsonb) k),
   array['blocked_tenants', 'mrr', 'released_tenants', 'revenue_this_month', 'revenue_trend'],
   'o contrato novo: liberadas e bloqueadas no lugar de ativas e suspensas'
+);
+
+-- D. A tabela de faturas sem escritor saiu do banco (ticket 04), com as policies e os indices dela ---------------------------------
+select hasnt_table('public', 'invoices', 'public.invoices nao existe mais: ninguem soma receita de uma tabela sem escritor');
+select is(
+  (select count(*)::int from pg_policies where schemaname = 'public' and tablename = 'invoices'),
+  0,
+  'e as policies da tabela de faturas sairam junto'
 );
 
 select * from finish();

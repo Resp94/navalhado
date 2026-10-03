@@ -14,8 +14,6 @@ O diagrama abaixo ilustra as tabelas do sistema e suas relações. As linhas con
 erDiagram
     plans ||--o{ tenant_subscriptions : "possui"
     tenants ||--o{ tenant_subscriptions : "possui"
-    tenants ||--o{ invoices : "gera"
-    tenant_subscriptions ||--o{ invoices : "fatura"
     tenants ||--o{ users : "pertence_a"
     tenants ||--o{ professionals : "possui"
     users ||--o{ professionals : "perfil_de"
@@ -58,18 +56,6 @@ erDiagram
         text billing_cycle
         timestamp created_at
         timestamp updated_at
-    }
-
-    invoices {
-        uuid id PK
-        uuid tenant_id FK
-        uuid tenant_subscription_id FK
-        text external_id
-        numeric amount
-        text status
-        timestamp due_date
-        timestamp paid_at
-        timestamp created_at
     }
 
     users {
@@ -210,19 +196,6 @@ create table public.tenant_subscriptions (
     billing_cycle text not null check (billing_cycle in ('monthly', 'yearly')),
     created_at timestamp with time zone default timezone('utc'::text, now()) not null,
     updated_at timestamp with time zone default timezone('utc'::text, now()) not null
-);
-
--- Tabela: invoices
-create table public.invoices (
-    id uuid primary key default gen_random_uuid(),
-    tenant_id uuid not null references public.tenants(id) on delete cascade,
-    tenant_subscription_id uuid not null references public.tenant_subscriptions(id) on delete cascade,
-    external_id text not null unique,
-    amount numeric(10, 2) not null check (amount >= 0),
-    status text not null check (status in ('pending', 'paid', 'overdue', 'canceled')),
-    due_date timestamp with time zone not null,
-    paid_at timestamp with time zone,
-    created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 
 -- =========================================================================
@@ -402,7 +375,6 @@ where direction = 'outbound' and appointment_id is not null
 
 -- Índices de chaves estrangeiras (evitam table scan em joins de multi-tenant)
 create index idx_tenant_subscriptions_tenant_id on public.tenant_subscriptions(tenant_id);
-create index idx_invoices_tenant_id on public.invoices(tenant_id);
 create index idx_users_tenant_id on public.users(tenant_id);
 create index idx_professionals_tenant_id on public.professionals(tenant_id);
 create index idx_professionals_user_id on public.professionals(user_id);
@@ -493,7 +465,6 @@ revoke execute on function private.is_saas_admin() from PUBLIC, anon;
 alter table public.plans enable row level security;
 alter table public.tenants enable row level security;
 alter table public.tenant_subscriptions enable row level security;
-alter table public.invoices enable row level security;
 alter table public.users enable row level security;
 alter table public.professionals enable row level security;
 alter table public.services enable row level security;
@@ -509,7 +480,6 @@ alter table public.whatsapp_message_idempotency force row level security;
 alter table public.plans force row level security;
 alter table public.tenants force row level security;
 alter table public.tenant_subscriptions force row level security;
-alter table public.invoices force row level security;
 alter table public.users force row level security;
 alter table public.professionals force row level security;
 alter table public.services force row level security;
@@ -582,28 +552,6 @@ create policy subscriptions_update_policy on public.tenant_subscriptions
   using ((select private.is_saas_admin()));
 
 create policy subscriptions_delete_policy on public.tenant_subscriptions
-  for delete to authenticated
-  using ((select private.is_saas_admin()));
-
--- -------------------------------------------------------------------------
--- Tabela: invoices
--- -------------------------------------------------------------------------
-create policy invoices_select_policy on public.invoices
-  for select to authenticated
-  using (
-    (select private.is_saas_admin()) or 
-    tenant_id = (select private.get_auth_tenant_id())
-  );
-
-create policy invoices_insert_policy on public.invoices
-  for insert to authenticated
-  with check ((select private.is_saas_admin()));
-
-create policy invoices_update_policy on public.invoices
-  for update to authenticated
-  using ((select private.is_saas_admin()));
-
-create policy invoices_delete_policy on public.invoices
   for delete to authenticated
   using ((select private.is_saas_admin()));
 
