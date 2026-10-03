@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import { Button } from '../ui';
 import { ConfirmDialog } from '../ui/feedback/ConfirmDialog';
+import { useToast } from '../Toast';
 import { dataCompleta, fimDoAcessoAoCancelar } from '../../modules/assinatura/apresentacaoDaAssinatura';
+import { mensagemDoCancelamento } from '../../modules/assinatura/mensagensDeAcesso';
 import type { AssinaturaCancelavel } from '../../modules/assinatura/types';
 import { useCancelarAssinatura } from '../../modules/assinatura/useCancelarAssinatura';
 
@@ -49,6 +51,7 @@ function textosDoCancelamento(assinatura: AssinaturaCancelavel, timezone?: strin
  */
 export const CancelarAssinatura: React.FC<CancelarAssinaturaProps> = ({ assinatura, timezone, onCancelada }) => {
   const { cancelar, cancelando, erro, limparErro } = useCancelarAssinatura();
+  const { addToast } = useToast();
   const [aberta, setAberta] = useState(false);
   const [cancelada, setCancelada] = useState(false);
 
@@ -63,6 +66,9 @@ export const CancelarAssinatura: React.FC<CancelarAssinaturaProps> = ({ assinatu
     // O aviso fica na tela até a releitura da assinatura chegar; com o botão de volta, um clique nessa janela levaria uma recusa
     // ("já está cancelada") numa tela que está para mudar.
     setCancelada(true);
+    // A confirmação que o painel mostrava como faixa fixa até o fim do período pago: agora passa e some. Quem volta no dia
+    // seguinte vê a situação em Ajustes > Assinatura.
+    addToast(mensagemDoCancelamento(fimDoAcessoAoCancelar(assinatura), timezone), 'success');
     onCancelada?.();
   };
 

@@ -1,6 +1,7 @@
 import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { ToastProvider } from '../../Toast';
 import type { DetalhesDaAssinatura } from '../../../modules/assinatura/types';
 
 const { mockCancelar } = vi.hoisted(() => ({ mockCancelar: vi.fn() }));
@@ -27,7 +28,11 @@ const assinaturaAtiva: DetalhesDaAssinatura = {
 
 const renderizar = (assinatura: Partial<DetalhesDaAssinatura> = {}, timezone?: string) => {
   const onCancelada = vi.fn();
-  render(<CancelarAssinatura assinatura={{ ...assinaturaAtiva, ...assinatura }} timezone={timezone} onCancelada={onCancelada} />);
+  render(
+    <ToastProvider>
+      <CancelarAssinatura assinatura={{ ...assinaturaAtiva, ...assinatura }} timezone={timezone} onCancelada={onCancelada} />
+    </ToastProvider>,
+  );
   return { onCancelada };
 };
 
@@ -158,6 +163,85 @@ describe('CancelarAssinatura', () => {
     });
   });
 
+  // Spec 054, ticket 05: a confirmação do cancelamento é um toast que some sozinho (a faixa fixa do painel saiu). Timers falsos,
+  // inclusive o setTimeout do toast. `shouldAdvanceTime` deixa o relógio falso andar com o real: o userEvent do Testing Library espera
+  // um setTimeout(0) depois de cada ação e travaria sem isso. Por isso as margens de 1 s nas conferências do tempo.
+  describe('a confirmação em toast', () => {
+    const DURACAO_PADRAO_DO_TOAST_MS = 4000;
+    const MARGEM_MS = 1000;
+
+    beforeEach(() => {
+      vi.useRealTimers();
+      vi.useFakeTimers({ toFake: ['Date', 'setTimeout', 'clearTimeout'], shouldAdvanceTime: true });
+      vi.setSystemTime(new Date('2026-10-01T12:00:00Z'));
+    });
+
+    const cancelarDeVerdade = async () => {
+      mockCancelar.mockResolvedValue(undefined);
+      const usuario = userEvent.setup({ delay: null });
+      await usuario.click(screen.getByRole('button', { name: 'Cancelar assinatura' }));
+      await usuario.click(within(dialogo()).getByRole('button', { name: 'Sim, cancelar a assinatura' }));
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0);
+      });
+    };
+
+    it('mostra "Assinatura cancelada. Acesso até DD/MM." com o fim do período pago', async () => {
+      renderizar();
+
+      await cancelarDeVerdade();
+
+      expect(screen.getByText('Assinatura cancelada. Acesso até 29/10.')).toBeInTheDocument();
+    });
+
+    it('a data do toast segue o fuso da barbearia', async () => {
+      // 02:30 UTC de 30/10 ainda é 29/10 em Brasília e já é 30/10 em Lisboa.
+      renderizar({ periodoAte: new Date('2026-10-30T02:30:00Z') }, 'Europe/Lisbon');
+
+      await cancelarDeVerdade();
+
+      expect(screen.getByText('Assinatura cancelada. Acesso até 30/10.')).toBeInTheDocument();
+    });
+
+    it('em teste, a data é a do fim do teste', async () => {
+      renderizar({ situacao: 'trialing', periodoAte: null });
+
+      await cancelarDeVerdade();
+
+      expect(screen.getByText('Assinatura cancelada. Acesso até 14/10.')).toBeInTheDocument();
+    });
+
+    it('sem data do fim do acesso (tela de bloqueio), o toast só confirma o cancelamento', async () => {
+      renderizar({ situacao: 'blocked', periodoAte: null, testeAte: null, cartao: null });
+
+      await cancelarDeVerdade();
+
+      // A mensagem passageira no lugar do botão tem o mesmo texto: são duas, a do botão e a do toast.
+      expect(screen.getAllByText('Assinatura cancelada.')).toHaveLength(2);
+      expect(screen.queryByText(/Acesso até/)).not.toBeInTheDocument();
+    });
+
+    it('o toast some sozinho pela duração padrão (4 s), e a mensagem no lugar do botão continua', async () => {
+      renderizar();
+      const agendamentos = vi.spyOn(globalThis, 'setTimeout');
+      await cancelarDeVerdade();
+      expect(screen.getByText('Assinatura cancelada. Acesso até 29/10.')).toBeInTheDocument();
+      expect(agendamentos).toHaveBeenCalledWith(expect.any(Function), DURACAO_PADRAO_DO_TOAST_MS);
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(DURACAO_PADRAO_DO_TOAST_MS - MARGEM_MS);
+      });
+      expect(screen.getByText('Assinatura cancelada. Acesso até 29/10.')).toBeInTheDocument();
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(2 * MARGEM_MS);
+      });
+      expect(screen.queryByText('Assinatura cancelada. Acesso até 29/10.')).not.toBeInTheDocument();
+      expect(screen.getByRole('status')).toHaveTextContent('Assinatura cancelada.');
+      expect(screen.queryByRole('button', { name: 'Cancelar assinatura' })).not.toBeInTheDocument();
+    });
+  });
+
   describe('confirmar', () => {
     it('pede à função de cobrança, sem mandar barbearia nem assinatura, e avisa a tela', async () => {
       mockCancelar.mockResolvedValue(undefined);
@@ -212,6 +296,7 @@ describe('CancelarAssinatura', () => {
       expect(within(dialogo()).getByRole('button', { name: 'Sim, cancelar a assinatura' })).toBeEnabled();
       expect(onCancelada).not.toHaveBeenCalled();
       expect(screen.queryByRole('status')).not.toBeInTheDocument();
+      expect(screen.queryByText(/Assinatura cancelada\./)).not.toBeInTheDocument();
     });
 
     it('tentar de novo depois de uma falha limpa o erro e cancela', async () => {

@@ -402,38 +402,46 @@ describe('GerenteLayout Gatekeeper', () => {
       expect(await screen.findByRole('status')).toHaveTextContent('até 03/10');
     });
 
-    // Spec 052, ticket 12: depois de cancelar, a faixa "Assinatura cancelada. Acesso até DD/MM." aparece sem recarregar a página.
-    it('cancelada dentro do período pago: mostra a faixa com a data do fim do acesso e mantém o painel', async () => {
+    // Spec 054, ticket 05: a cancelada (Estado de Acesso `warning` com o motivo `canceled`) continua liberada até o fim do período pago,
+    // mas o painel não mostra faixa fixa: o cancelamento foi decisão do Gerente e a confirmação é um toast (CancelarAssinatura).
+    it('cancelada dentro do período pago: o painel abre sem faixa de aviso', async () => {
       painelDaBarbearia('/agenda');
       estadoDoBanco('warning', 'canceled', '2026-10-29T23:26:22Z');
 
       render(<GerenteLayout />);
 
-      expect(await screen.findByRole('status')).toHaveTextContent('Assinatura cancelada. Acesso até 29/10.');
+      expect(await screen.findByTestId('outlet')).toBeInTheDocument();
+      expect(screen.queryByRole('status')).not.toBeInTheDocument();
+      expect(screen.queryByText(/Assinatura cancelada/)).not.toBeInTheDocument();
+      expect(screen.queryByRole('heading', { name: 'Sua assinatura foi cancelada' })).not.toBeInTheDocument();
+    });
+
+    // O Estado de Acesso continua o mesmo (warning/canceled): só a faixa saiu. Os outros motivos pedem uma providência e seguem fixos.
+    it.each([
+      ['teste terminando', 'trial', 'Seu período de teste está terminando.'],
+      ['pagamento recusado', 'payment_failed', 'Pagamento recusado. Atualize o cartão até 03/10 para não ter o acesso bloqueado.'],
+      ['acesso liberado à mão', 'unblocked', 'Acesso liberado manualmente até 03/10. Regularize a assinatura para não ter o acesso bloqueado.'],
+    ])('%s: a faixa de aviso continua fixa no painel', async (_nome, motivo, texto) => {
+      painelDaBarbearia('/agenda');
+      estadoDoBanco('warning', motivo, motivo === 'trial' ? null : '2026-10-03T15:00:00Z');
+
+      render(<GerenteLayout />);
+
+      expect(await screen.findByRole('status')).toHaveTextContent(texto);
       expect(screen.getByTestId('outlet')).toBeInTheDocument();
     });
 
-    it('cancelada: a data do fim do acesso na faixa segue o fuso da barbearia', async () => {
-      painelDaBarbearia('/agenda', true, '', 'America/Manaus');
-      // 03:30 UTC de 30/10: 00:30 do dia 30 em Brasília, 23:30 do dia 29 em Manaus.
-      estadoDoBanco('warning', 'canceled', '2026-10-30T03:30:00Z');
-
-      render(<GerenteLayout />);
-
-      expect(await screen.findByRole('status')).toHaveTextContent('Acesso até 29/10.');
-    });
-
-    it('as páginas pedem a releitura do estado pelo contexto: a faixa de cancelada aparece sem recarregar a página', async () => {
+    it('as páginas pedem a releitura do estado pelo contexto: a releitura que vira cancelada tira a faixa sem recarregar a página', async () => {
       painelDaBarbearia('/configuracoes');
-      estadoDoBanco('allowed', 'active');
+      estadoDoBanco('warning', 'payment_failed', '2026-10-03T15:00:00Z');
       render(<GerenteLayout />);
-      await screen.findByTestId('outlet');
-      expect(screen.queryByRole('status')).not.toBeInTheDocument();
+      expect(await screen.findByRole('status')).toHaveTextContent('Pagamento recusado.');
 
       estadoDoBanco('warning', 'canceled', '2026-10-29T23:26:22Z');
       await userEvent.click(screen.getByRole('button', { name: 'simular releitura do acesso' }));
 
-      expect(await screen.findByRole('status')).toHaveTextContent('Assinatura cancelada. Acesso até 29/10.');
+      await waitFor(() => expect(screen.queryByRole('status')).not.toBeInTheDocument());
+      expect(screen.getByTestId('outlet')).toBeInTheDocument();
     });
 
     it('a releitura que bloqueia (cancelada sem período a esperar) troca o painel pela tela de bloqueio', async () => {
@@ -471,7 +479,7 @@ describe('GerenteLayout Gatekeeper', () => {
       render(<GerenteLayout />);
       await screen.findByTestId('outlet');
 
-      estadoDoBanco('warning', 'canceled', '2026-10-29T23:26:22Z');
+      estadoDoBanco('warning', 'payment_failed', '2026-10-03T15:00:00Z');
       await userEvent.click(screen.getByRole('button', { name: 'simular releitura do acesso' }));
       await screen.findByRole('status');
 

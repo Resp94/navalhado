@@ -42,6 +42,16 @@ export function explicacaoDoBloqueio(motivo: MotivoDeAcesso, perfil: PerfilNoBlo
 }
 
 /**
+ * Confirmação do cancelamento (o toast da tela Assinatura): diz até quando o acesso continua, no fuso da barbearia, ou só confirma
+ * quando não há período a esperar. A faixa fixa do painel não mostra mais a cancelada (spec 054, ticket 05): foi decisão do próprio
+ * Gerente e a situação fica à vista em Ajustes > Assinatura.
+ */
+export function mensagemDoCancelamento(fimDoAcesso: Date | null, timezone?: string): string {
+  const acessoAte = fimDoAcesso ? ` Acesso até ${dataCurta(fimDoAcesso, timezone)}.` : '';
+  return `Assinatura cancelada.${acessoAte}`;
+}
+
+/**
  * Texto da faixa de aviso. `dias` é a contagem até a data relevante; nulo se não houver. No
  * pagamento recusado a data relevante é a do bloqueio (5 dias depois da primeira recusa); na
  * assinatura cancelada é o fim do período pago, até quando o acesso continua. As duas são
@@ -56,8 +66,7 @@ export function mensagemDoAviso(estado: EstadoDeAcesso, dias: number | null, tim
   }
 
   if (estado.motivo === 'canceled') {
-    const acessoAte = estado.dataRelevante ? ` Acesso até ${dataCurta(estado.dataRelevante, timezone)}.` : '';
-    return `Assinatura cancelada.${acessoAte}`;
+    return mensagemDoCancelamento(estado.dataRelevante, timezone);
   }
 
   // O desbloqueio manual (ticket 15) vale até o fim de um dia no fuso da barbearia: a data relevante é esse último instante.

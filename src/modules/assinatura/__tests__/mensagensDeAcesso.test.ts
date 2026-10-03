@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { explicacaoDoBloqueio, mensagemDoAviso, tituloDoBloqueio } from '../mensagensDeAcesso';
+import { explicacaoDoBloqueio, mensagemDoAviso, mensagemDoCancelamento, tituloDoBloqueio } from '../mensagensDeAcesso';
 import type { EstadoDeAcesso, MotivoDeAcesso } from '../types';
 
 const aviso = (motivo: MotivoDeAcesso): EstadoDeAcesso => ({ acesso: 'aviso', motivo, dataRelevante: null });
@@ -67,6 +67,25 @@ describe('mensagens de acesso', () => {
         expect(texto).not.toMatch(/assine|cartão/i);
       }
     );
+  });
+
+  // Spec 054, ticket 05: a confirmação do cancelamento é um toast, com o texto que a faixa fixa tinha.
+  describe('confirmação do cancelamento', () => {
+    it('diz até quando o acesso continua', () => {
+      expect(mensagemDoCancelamento(new Date('2026-10-29T23:26:22Z'))).toBe('Assinatura cancelada. Acesso até 29/10.');
+    });
+
+    it('a data segue o fuso da barbearia', () => {
+      // 03:30 UTC de 04/10: 00:30 do dia 4 em Brasília, 23:30 do dia 3 em Manaus.
+      const fim = new Date('2026-10-04T03:30:00Z');
+
+      expect(mensagemDoCancelamento(fim)).toBe('Assinatura cancelada. Acesso até 04/10.');
+      expect(mensagemDoCancelamento(fim, 'America/Manaus')).toBe('Assinatura cancelada. Acesso até 03/10.');
+    });
+
+    it('sem data do fim do acesso, só confirma o cancelamento', () => {
+      expect(mensagemDoCancelamento(null)).toBe('Assinatura cancelada.');
+    });
   });
 
   describe('faixa de aviso', () => {

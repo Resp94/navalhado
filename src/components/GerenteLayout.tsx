@@ -320,7 +320,12 @@ export const GerenteLayout: React.FC = () => {
               : 'flex-1 w-full mx-auto flex flex-col min-w-0 box-border max-w-[1440px] px-8 py-6 gap-6 max-lg:relative max-lg:top-[-8px] max-md:static max-md:top-0 max-md:px-[0.875rem] max-md:pt-4 max-md:pb-[calc(4.5rem+env(safe-area-inset-bottom,0px))] max-md:gap-4'
           }
         >
-          {estadoDeAcesso?.acesso === 'aviso' && <FaixaDeAviso estado={estadoDeAcesso} timezone={tenantInfo.timezone} />}
+          {/* A cancelada tem o acesso garantido até o fim do período pago e a decisão foi do Gerente: sem faixa fixa (o aviso vira o
+              toast do cancelamento e a situação fica em Ajustes > Assinatura). Teste terminando, pagamento recusado e acesso
+              liberado à mão pedem uma providência e seguem fixos. */}
+          {estadoDeAcesso?.acesso === 'aviso' && estadoDeAcesso.motivo !== 'canceled' && (
+            <FaixaDeAviso estado={estadoDeAcesso} timezone={tenantInfo.timezone} />
+          )}
           <Outlet context={contextoDasPaginas} />
         </main>
 
