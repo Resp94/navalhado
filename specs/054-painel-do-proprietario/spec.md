@@ -1,0 +1,93 @@
+# Especificação Técnica: Painel do Proprietário com a cobrança real e cabeçalho que cabe no celular
+
+Triagem: `ready-for-agent`
+
+## Problem Statement
+
+O Proprietário abre Admin > Dashboard para saber quanto a plataforma fatura e quantas barbearias estão de pé, e o painel não conversa com a cobrança da spec 052.
+
+**1. A receita vem de uma tabela que ninguém grava.** `get_admin_dashboard_metrics` soma "Faturamento do mês" e "Evolução da receita" (últimos 12 meses) a partir de `public.invoices`, criada na migration das rotas do Proprietário (2026-07-12) para um desenho de faturas que nunca foi implementado. Nenhum código grava nela: a cobrança recorrente da spec 052 registra cada pagamento em `billing_charges` (mensalidade `recurring` e diferença de plano `upgrade`, com `status`, `amount` e `charged_at`). Visto no DEV em 2026-10-03, logado como Proprietário no site de DEV: `invoices` tem 0 linhas, `billing_charges` tem 7 cobranças aprovadas, R$ 319,80 delas em outubro, e o painel mostra "Faturamento do mês R$ 0,00" e o gráfico zerado. Em produção, depois da promoção da 052, todo dinheiro recebido pelo Mercado Pago ficaria fora do painel.
+
+**2. Os contadores olham a situação crua da assinatura, e não o Estado de Acesso.** O ticket 03 da 052 ajustou a função só no que mudou de nome:
+- "Receita recorrente (MRR)" soma o preço do plano das assinaturas `active`. A `past_due` (pagamento recusado, ainda tentando cobrar) fica de fora, e a descida de plano agendada (ticket 11) não entra: o MRR mostra o plano de hoje, e não o valor que a próxima cobrança vai cobrar.
+- "Barbearias ativas" conta só `active`: barbearia em teste, em cortesia ou cancelada com o período pago pela frente está liberada e não aparece.
+- "Inadimplentes / Suspensas" conta `status = 'blocked'`: a barbearia com Desbloqueio Manual em vigor está liberada e entra como suspensa (limitação registrada no ticket 15), e a que o Estado de Acesso já bloqueou mas a rotina diária ainda não gravou (teste vencido hoje) fica de fora. "Suspensa" é termo a evitar no glossário (`suspended` saiu na 052).
+
+**3. O cabeçalho do Admin não cabe no celular.** Em 375 px de largura, a barra do topo de Admin > Barbearias e de Admin > Dashboard (logo, "Dashboard", "Barbearias" e "Sair") passa 22 px da tela: o botão Sair termina em 397 px, a página inteira ganha rolagem horizontal e o botão fica cortado. O cabeçalho é escrito à mão, duas vezes, um em cada página, então qualquer correção precisa ser feita em dobro.
+
+## Solution
+
+O painel do Proprietário passa a ler a cobrança real e o Estado de Acesso, e o cabeçalho do Admin vira um só, que cabe numa tela de celular.
+
+- **Faturamento do mês** é a soma das cobranças aprovadas (`billing_charges.status = 'approved'`, mensalidade e diferença de plano) com `charged_at` no mês corrente. **Evolução da receita** usa a mesma regra, mês a mês, nos últimos 12 meses. O mês é o do calendário de Brasília (`America/Sao_Paulo`), o fuso da plataforma, e não o de cada barbearia. A cobrança estornada ou contestada deixa de ser `approved` e sai da soma sozinha.
+- **Receita recorrente (MRR)** é o valor mensal que a próxima cobrança vai cobrar de cada assinatura que segue sendo cobrada: as `active` e as `past_due`, pelo preço do plano agendado quando há descida agendada e pelo preço do plano atual quando não há. Cancelada, cortesia, teste e bloqueada não entram (a cortesia não é cobrada, e a cancelada não renova).
+- **Barbearias liberadas** (no lugar de "Barbearias ativas") conta as barbearias cujo Estado de Acesso de agora é `allowed` ou `warning`, seja qual for o motivo (teste, pagante, cortesia, cancelada com período pago, Desbloqueio Manual).
+- **Barbearias bloqueadas** (no lugar de "Inadimplentes / Suspensas") conta as barbearias cujo Estado de Acesso de agora é `blocked`, seja qual for o motivo.
+- O contrato da RPC muda de nome onde muda de sentido (ver Implementation Decisions), e a tela acompanha.
+- `public.invoices` sai do banco, porque não tem dono nem escritor; antes, confere-se que está vazia no DEV e na PROD.
+- O cabeçalho do Admin vira um componente único, usado pelas duas páginas, que cabe em 375 px sem rolagem horizontal da página e com o Sair inteiro na tela.
+
+## User Stories
+
+1. Como Proprietário, quero que "Faturamento do mês" mostre o dinheiro que o Mercado Pago aprovou neste mês, para saber quanto a plataforma faturou de verdade.
+2. Como Proprietário, quero que a diferença de plano cobrada numa subida entre no faturamento do mês, para o número bater com o extrato do Mercado Pago.
+3. Como Proprietário, quero que uma cobrança recusada, em análise ou pendente não entre no faturamento, para não contar dinheiro que não veio.
+4. Como Proprietário, quero que uma cobrança estornada ou contestada saia do faturamento, para o painel não mostrar receita que foi devolvida.
+5. Como Proprietário, quero que o mês do faturamento seja o do calendário de Brasília, para uma cobrança feita às 22h do dia 31 em Manaus não pular para o mês seguinte só no painel.
+6. Como Proprietário, quero ver a evolução da receita mês a mês nos últimos 12 meses com a mesma regra do faturamento do mês, para o gráfico e o cartão nunca discordarem.
+7. Como Proprietário, quero ver meses sem cobrança como zero no gráfico, para enxergar os buracos sem confundir com erro de carga.
+8. Como Proprietário, quero que o MRR some o valor da próxima cobrança das assinaturas pagantes, para estimar a receita do mês que vem.
+9. Como Proprietário, quero que a assinatura com pagamento recusado (`past_due`) ainda conte no MRR enquanto o Mercado Pago tenta cobrar, para o MRR não despencar no primeiro dia de recusa.
+10. Como Proprietário, quero que a descida de plano agendada já conte no MRR pelo plano menor, porque é esse valor que o Mercado Pago vai cobrar.
+11. Como Proprietário, quero que cortesia, teste, cancelada e bloqueada fiquem fora do MRR, porque nenhuma delas vai gerar a próxima cobrança.
+12. Como Proprietário, quero saber quantas barbearias estão liberadas agora, contando teste, pagante, cortesia, cancelada com período pago e desbloqueio manual, para saber quantas estão usando a plataforma.
+13. Como Proprietário, quero saber quantas barbearias estão bloqueadas agora, pelo mesmo Estado de Acesso que fecha o painel do Gerente, para o número bater com o que o cliente vê.
+14. Como Proprietário, quero que a barbearia que eu desbloqueei à mão conte como liberada, e não como bloqueada, enquanto o desbloqueio vale.
+15. Como Proprietário, quero que a barbearia com teste vencido hoje já conte como bloqueada, mesmo antes de a rotina diária gravar o bloqueio.
+16. Como Proprietário, quero que o painel use as palavras do domínio ("liberadas", "bloqueadas") e não "suspensas", para não confundir com um estado que não existe mais.
+17. Como Proprietário, quero que só eu consiga ler essas métricas, para os números da plataforma não vazarem para um Gerente.
+18. Como Gerente com `tenant_id` nulo, Barbeiro ou anônimo, quero receber recusa ao chamar a RPC das métricas, para a guarda valer para todo papel que não é o Proprietário.
+19. Como Proprietário, quero abrir Admin > Dashboard e Admin > Barbearias no celular sem rolar a página para o lado, para conferir uma barbearia longe do computador.
+20. Como Proprietário, quero o botão Sair inteiro na tela do celular, para sair da conta sem procurar o botão.
+21. Como Proprietário, quero o mesmo cabeçalho nas duas telas do Admin, com a aba atual marcada, para saber onde estou.
+22. Como desenvolvedor, quero um cabeçalho do Admin único, para uma correção futura valer nas duas telas de uma vez.
+23. Como desenvolvedor, quero que a tabela morta `public.invoices` saia do banco, para ninguém voltar a somar receita de uma tabela sem escritor.
+24. Como desenvolvedor, quero um teste pgTAP que prove as métricas com cobranças e assinaturas montadas na transação, para a regra não regredir sem aviso.
+
+## Implementation Decisions
+
+- **A regra mora no banco, numa RPC só.** `public.get_admin_dashboard_metrics()` continua sendo a única fonte do painel (security definer, `search_path` vazio, `EXECUTE` só para `authenticated`) e é reescrita por migration. A guarda passa a ser `private.assert_saas_admin()`, a mesma das Ferramentas do Proprietário (recusa com `ADMIN_ONLY`/42501), no lugar do `if not exists ... raise exception` com texto livre.
+- **Contrato novo da RPC** (jsonb), com os nomes acompanhando o sentido:
+  - `mrr` (numeric): soma, para cada assinatura `active` ou `past_due`, do preço do plano agendado (`scheduled_plan_id`) quando houver, senão do plano atual.
+  - `revenue_this_month` (numeric): soma de `billing_charges.amount` com `status = 'approved'` e `charged_at` no mês corrente de `America/Sao_Paulo`.
+  - `released_tenants` (integer): barbearias com `private.tenant_access_state(tenant, now())` em `allowed` ou `warning`. Substitui `active_tenants`.
+  - `blocked_tenants` (integer): barbearias com Estado de Acesso `blocked`. Substitui `suspended_tenants`.
+  - `revenue_trend` (array de 12 itens, do mais antigo ao mês corrente): `month` (`YYYY-MM`), `month_label` e `revenue`, com zero no mês sem cobrança aprovada; mesma regra e mesmo fuso de `revenue_this_month`.
+- **Barbearia sem linha de assinatura** não entra em nenhum contador (o Estado de Acesso dela não é calculável); a migration do ticket 03 deu assinatura a todas, então isso só cobre dado quebrado.
+- **O mês é de Brasília**, fixo, porque o painel é da plataforma e as barbearias têm fusos diferentes; as datas por barbearia continuam sendo do fuso dela nas Ferramentas do Proprietário.
+- **A tela** (`Admin > Dashboard`) lê os campos novos, troca os rótulos para "Barbearias liberadas" ("com acesso liberado agora") e "Barbearias bloqueadas" ("com acesso bloqueado agora"), e mantém MRR, faturamento e gráfico como estão visualmente.
+- **`public.invoices` sai**: um ticket confere, só com leitura, que a tabela está vazia no DEV e (com o OK do usuário) na PROD, e uma migration a remove junto com as policies e o índice. Se a PROD tiver linhas, o ticket para e volta ao usuário. `docs/modelagem_banco.md` acompanha.
+- **Cabeçalho único do Admin**: um componente compartilhado, usado por `Admin > Dashboard` e `Admin > Barbearias`, com logo, as duas abas (a atual marcada), o nome e o papel do usuário (escondidos em tela estreita, como hoje) e o Sair. Em 375 px nada passa da largura da tela. O componente recebe o nome do usuário e a ação de sair; cada página continua buscando o nome como hoje.
+- **Ordem**: a migration vai só para o DEV (`selvxobcjbkligxighlp`) pelo MCP. A PROD recebe tudo na promoção da spec 052, que ainda não tem spec; esta spec depende de `billing_charges`, `private.tenant_access_state` e `private.assert_saas_admin`, que só existem com a 052.
+
+## Testing Decisions
+
+- **Bom teste aqui** prova o comportamento que o Proprietário vê (os números devolvidos para um conjunto conhecido de assinaturas e cobranças; o texto e a largura da tela), e não como a função monta a consulta.
+- **Seam 1: a RPC, por pgTAP** (`supabase/tests/database/80_painel_do_proprietario.test.sql`, rodado pelo MCP em `begin; ... rollback;`). Monta barbearias na transação, uma por situação (`trialing`, `active`, `past_due`, `blocked`, `canceled` com e sem período pago, `courtesy`, desbloqueada à mão, teste vencido sem bloqueio gravado, `active` com descida agendada) e cobranças `approved`, `rejected`, `in_process` e `refunded`, inclusive uma na virada do mês em Brasília e outra 13 meses atrás. Compara com o estado real do DEV somando por diferença (antes e depois de inserir), para não depender das barbearias de teste que já existem. Prova a guarda para Gerente, Barbeiro, anônimo e Gerente com `tenant_id` nulo. Prior art: `78_ferramentas_do_proprietario.test.sql` (matriz de autorização e datas de borda por fuso).
+- **Seam 2: a tela, por Vitest** (`Dashboard.test.tsx`, que já mocka `supabase.rpc`): os rótulos novos com os campos novos do contrato, e o gráfico com meses zerados.
+- **Seam 3: o cabeçalho, por Vitest e navegador.** Vitest prova que as duas páginas usam o mesmo componente, que a aba atual fica marcada e que Sair chama a saída. jsdom não mede largura: a prova de "cabe em 375 px" é no navegador (Browser pane com `resize_window` em mobile), com `document.documentElement.scrollWidth` igual a `clientWidth` nas duas rotas.
+- Gates de sempre: `rtk proxy npx oxlint src supabase/functions`, Vitest completo rodando sozinho, `npm run build`.
+
+## Out of Scope
+
+- Promover esta spec ou a 052 para a PROD.
+- Levar `Admin > Barbearias` e `Admin > Dashboard` ao padrão de módulo (repositório e adaptador): continuam chamando o Supabase direto, como hoje (anotado no ticket 15 da 052).
+- Receita líquida de taxas do Mercado Pago, previsão de churn, coortes ou qualquer métrica nova além das quatro e do gráfico.
+- Ajustes de acessibilidade da gaveta compartilhada (`Drawer` não leva, prende nem devolve o foco): problema antigo, de outra spec.
+- O cartão sem os 4 últimos dígitos na assinatura criada pelo checkout do Mercado Pago (o final só vem na primeira cobrança).
+
+## Further Notes
+
+- Achado no teste das specs 052 e 053 no site de DEV, logado como Proprietário, em 2026-10-03 (achados 4 e 5 da rodada).
+- O texto e as consultas que provaram o problema são só de leitura no DEV; a PROD não foi consultada.
+- Rótulos do gráfico (`TMMonth YY`) ficam como estão.
