@@ -66,8 +66,7 @@ export const CancelarAssinatura: React.FC<CancelarAssinaturaProps> = ({ assinatu
     // O aviso fica na tela até a releitura da assinatura chegar; com o botão de volta, um clique nessa janela levaria uma recusa
     // ("já está cancelada") numa tela que está para mudar.
     setCancelada(true);
-    // A confirmação que o painel mostrava como faixa fixa até o fim do período pago: agora passa e some. Quem volta no dia
-    // seguinte vê a situação em Ajustes > Assinatura.
+    // Confirmação passageira, uma vez, na hora do cancelamento: quem volta depois vê a situação em Ajustes > Assinatura.
     addToast(mensagemDoCancelamento(fimDoAcessoAoCancelar(assinatura), timezone), 'success');
     onCancelada?.();
   };

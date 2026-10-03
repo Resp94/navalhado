@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { explicacaoDoBloqueio, mensagemDoAviso, mensagemDoCancelamento, tituloDoBloqueio } from '../mensagensDeAcesso';
+import { explicacaoDoBloqueio, mensagemDoAviso, mensagemDoCancelamento, temFaixaDeAviso, tituloDoBloqueio } from '../mensagensDeAcesso';
 import type { EstadoDeAcesso, MotivoDeAcesso } from '../types';
 
 const aviso = (motivo: MotivoDeAcesso): EstadoDeAcesso => ({ acesso: 'aviso', motivo, dataRelevante: null });
@@ -67,6 +67,24 @@ describe('mensagens de acesso', () => {
         expect(texto).not.toMatch(/assine|cartão/i);
       }
     );
+  });
+
+  // Spec 054, ticket 05: o painel só mostra faixa fixa para os avisos que pedem uma providência do Gerente.
+  describe('quem tem faixa fixa no painel', () => {
+    const estado = (acesso: EstadoDeAcesso['acesso'], motivo: MotivoDeAcesso): EstadoDeAcesso => ({ acesso, motivo, dataRelevante: null });
+
+    it.each<MotivoDeAcesso>(['trial', 'payment_failed', 'unblocked'])('aviso por %s: tem faixa', (motivo) => {
+      expect(temFaixaDeAviso(estado('aviso', motivo))).toBe(true);
+    });
+
+    it('aviso da cancelada: não tem faixa (o acesso está garantido e a decisão foi do Gerente)', () => {
+      expect(temFaixaDeAviso(estado('aviso', 'canceled'))).toBe(false);
+    });
+
+    it.each<EstadoDeAcesso['acesso']>(['liberado', 'bloqueado'])('acesso %s: não tem faixa, qualquer que seja o motivo', (acesso) => {
+      expect(temFaixaDeAviso(estado(acesso, 'trial'))).toBe(false);
+      expect(temFaixaDeAviso(estado(acesso, 'canceled'))).toBe(false);
+    });
   });
 
   // Spec 054, ticket 05: a confirmação do cancelamento é um toast, com o texto que a faixa fixa tinha.

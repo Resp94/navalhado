@@ -42,9 +42,18 @@ export function explicacaoDoBloqueio(motivo: MotivoDeAcesso, perfil: PerfilNoBlo
 }
 
 /**
- * Confirmação do cancelamento (o toast da tela Assinatura): diz até quando o acesso continua, no fuso da barbearia, ou só confirma
- * quando não há período a esperar. A faixa fixa do painel não mostra mais a cancelada (spec 054, ticket 05): foi decisão do próprio
- * Gerente e a situação fica à vista em Ajustes > Assinatura.
+ * Se o painel do Gerente mostra a faixa fixa de aviso para o Estado de Acesso. Só os avisos que pedem uma providência dele (teste
+ * terminando, pagamento recusado, acesso liberado à mão). A cancelada com o período pago pela frente (`aviso` com o motivo `canceled`)
+ * tem o acesso garantido e o cancelamento foi decisão do próprio Gerente: a confirmação é o toast de `mensagemDoCancelamento`, e a
+ * situação fica à vista em Ajustes > Assinatura.
+ */
+export function temFaixaDeAviso(estado: EstadoDeAcesso): boolean {
+  return estado.acesso === 'aviso' && estado.motivo !== 'canceled';
+}
+
+/**
+ * Confirmação do cancelamento (o toast de `CancelarAssinatura`): diz até quando o acesso continua, no fuso da barbearia, ou só
+ * confirma quando não há período a esperar.
  */
 export function mensagemDoCancelamento(fimDoAcesso: Date | null, timezone?: string): string {
   const acessoAte = fimDoAcesso ? ` Acesso até ${dataCurta(fimDoAcesso, timezone)}.` : '';
@@ -55,7 +64,8 @@ export function mensagemDoCancelamento(fimDoAcesso: Date | null, timezone?: stri
  * Texto da faixa de aviso. `dias` é a contagem até a data relevante; nulo se não houver. No
  * pagamento recusado a data relevante é a do bloqueio (5 dias depois da primeira recusa); na
  * assinatura cancelada é o fim do período pago, até quando o acesso continua. As duas são
- * mostradas no fuso da barbearia.
+ * mostradas no fuso da barbearia. O painel não mostra faixa para a cancelada (`temFaixaDeAviso`); o ramo dela existe para a função
+ * continuar completa para qualquer motivo de aviso.
  */
 export function mensagemDoAviso(estado: EstadoDeAcesso, dias: number | null, timezone?: string): string {
   const contagem = dias === null ? null : `${dias} ${pluralizar(dias, 'dia', 'dias')}`;

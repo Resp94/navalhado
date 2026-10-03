@@ -418,12 +418,12 @@ describe('GerenteLayout Gatekeeper', () => {
 
     // O Estado de Acesso continua o mesmo (warning/canceled): só a faixa saiu. Os outros motivos pedem uma providência e seguem fixos.
     it.each([
-      ['teste terminando', 'trial', 'Seu período de teste está terminando.'],
-      ['pagamento recusado', 'payment_failed', 'Pagamento recusado. Atualize o cartão até 03/10 para não ter o acesso bloqueado.'],
-      ['acesso liberado à mão', 'unblocked', 'Acesso liberado manualmente até 03/10. Regularize a assinatura para não ter o acesso bloqueado.'],
-    ])('%s: a faixa de aviso continua fixa no painel', async (_nome, motivo, texto) => {
+      ['teste terminando', 'trial', null, 'Seu período de teste está terminando.'],
+      ['pagamento recusado', 'payment_failed', '2026-10-03T15:00:00Z', 'Pagamento recusado. Atualize o cartão até 03/10 para não ter o acesso bloqueado.'],
+      ['acesso liberado à mão', 'unblocked', '2026-10-03T15:00:00Z', 'Acesso liberado manualmente até 03/10. Regularize a assinatura para não ter o acesso bloqueado.'],
+    ])('%s: a faixa de aviso continua fixa no painel', async (_nome, motivo, dataRelevante, texto) => {
       painelDaBarbearia('/agenda');
-      estadoDoBanco('warning', motivo, motivo === 'trial' ? null : '2026-10-03T15:00:00Z');
+      estadoDoBanco('warning', motivo, dataRelevante);
 
       render(<GerenteLayout />);
 

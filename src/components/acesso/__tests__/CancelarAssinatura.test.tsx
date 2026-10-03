@@ -167,6 +167,7 @@ describe('CancelarAssinatura', () => {
   // inclusive o setTimeout do toast. `shouldAdvanceTime` deixa o relógio falso andar com o real: o userEvent do Testing Library espera
   // um setTimeout(0) depois de cada ação e travaria sem isso. Por isso as margens de 1 s nas conferências do tempo.
   describe('a confirmação em toast', () => {
+    // O padrão do ToastProvider (Toast.tsx): se ele mudar, este teste muda junto.
     const DURACAO_PADRAO_DO_TOAST_MS = 4000;
     const MARGEM_MS = 1000;
 
@@ -174,6 +175,11 @@ describe('CancelarAssinatura', () => {
       vi.useRealTimers();
       vi.useFakeTimers({ toFake: ['Date', 'setTimeout', 'clearTimeout'], shouldAdvanceTime: true });
       vi.setSystemTime(new Date('2026-10-01T12:00:00Z'));
+    });
+
+    afterEach(() => {
+      // Solta o espião de setTimeout do teste da duração (o afterEach do arquivo só volta os timers reais).
+      vi.restoreAllMocks();
     });
 
     const cancelarDeVerdade = async () => {

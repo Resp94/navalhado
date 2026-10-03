@@ -33,11 +33,11 @@ interface SecaoAssinaturaProps {
   search?: string;
   /** Como abrir o link do Mercado Pago. Por padrão, navega na mesma aba. */
   abrirLink?: (url: string) => void;
-  /** Chamado depois de a assinatura ser cancelada: o layout relê o Estado de Acesso e a faixa de cancelada aparece sem recarregar a página. */
+  /** Chamado depois de a assinatura ser cancelada: o layout relê o Estado de Acesso, e o porteiro (a tela de bloqueio, se não restar período pago) acompanha sem recarregar a página. */
   onCancelada?: () => void;
   /**
    * Chamado quando a assinatura lida muda de situação com a tela aberta (o aviso do Mercado Pago chegou: a assinatura nova foi
-   * autorizada, por exemplo): o layout relê o Estado de Acesso e a faixa do topo acompanha a tela. Não vale para a primeira leitura.
+   * autorizada, por exemplo): o layout relê o Estado de Acesso e o porteiro (faixa ou tela de bloqueio) acompanha a tela. Não vale para a primeira leitura.
    */
   onSituacaoMudou?: () => void;
 }
@@ -155,7 +155,8 @@ export const SecaoAssinatura: React.FC<SecaoAssinaturaProps> = ({
   // O cartão só existe (e só cobra) na assinatura ativa, recusada ou em teste já autorizada: só nela se troca o cartão.
   const cobrandoNoCartao = temCobrancaNoCartao(assinatura);
 
-  // Cancelada, a assinatura relê para mostrar "Cancelada até..." e o layout relê o Estado de Acesso para a faixa aparecer.
+  // Cancelada, a assinatura relê para mostrar "Cancelada até..." e o layout relê o Estado de Acesso (a tela de bloqueio aparece se não
+  // restar período pago). O aviso do cancelamento é o toast de CancelarAssinatura.
   const aoCancelar = () => {
     recarregar();
     onCancelada?.();
