@@ -1,4 +1,4 @@
-import { render, screen, waitFor, fireEvent } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent, within } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { Dashboard } from '../Dashboard';
 
@@ -92,6 +92,15 @@ describe('Admin Dashboard', () => {
     fireEvent.mouseEnter(points[0]);
     expect(screen.getByText('Julho 26')).toBeInTheDocument();
     expect(screen.getByText(/R\$\s0,00/)).toBeInTheDocument();
+  });
+
+  it('usa o cabeçalho compartilhado do Admin, com a aba Dashboard marcada', async () => {
+    render(<Dashboard />);
+
+    const abas = within(await screen.findByRole('navigation', { name: 'Navegação do Admin' }));
+    expect(abas.getByRole('button', { name: 'Dashboard' })).toHaveAttribute('aria-current', 'page');
+    expect(abas.getByRole('button', { name: 'Barbearias' })).not.toHaveAttribute('aria-current');
+    expect(await screen.findByText('João Admin')).toBeInTheDocument();
   });
 
   it('permite realizar logout com o botão Sair', async () => {

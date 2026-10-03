@@ -103,6 +103,24 @@ describe('Admin > Tenants', () => {
     expect(within(linhaDa('Barbearia Delta')).getByText('Sem assinatura')).toBeInTheDocument();
   });
 
+  // Spec 054, ticket 01: o cabeçalho é o mesmo componente do Admin > Dashboard, com a aba da página atual marcada.
+  it('usa o cabeçalho compartilhado do Admin, com a aba Barbearias marcada, e o Sair sai da conta', async () => {
+    const user = userEvent.setup();
+    render(<Tenants />);
+
+    const abas = within(await screen.findByRole('navigation', { name: 'Navegação do Admin' }));
+    expect(abas.getByRole('button', { name: 'Barbearias' })).toHaveAttribute('aria-current', 'page');
+    expect(abas.getByRole('button', { name: 'Dashboard' })).not.toHaveAttribute('aria-current');
+    expect(await screen.findByText('Dono do Navalhado')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Sair' }));
+
+    await waitFor(() => {
+      expect(mockSignOut).toHaveBeenCalled();
+      expect(mockNavigate).toHaveBeenCalledWith('/');
+    });
+  });
+
   // Os quatro estados da Instância WhatsApp (CONTEXT.md): 'connecting' é o pareamento em andamento e 'hibernated', a sessão pausada.
   // A tela do Gerente os chama de "Pareando" e "Pausado"; o Proprietário lê os mesmos rótulos, e não "Desconectado" para tudo o que
   // não é conectado.
