@@ -1,0 +1,21 @@
+-- Spec 053, ticket 04 (passo 2): o navegador passa a gravar so configuracao em whatsapp_instances.
+--
+-- O passo 1 (ticket 02) deixou status e qr_code graveis porque a tela ainda os gravava ao conectar e ao desconectar.
+-- O ticket 03 tirou essas escritas da tela: quem grava agora e a Edge Function whatsapp-integration, com
+-- service_role, que o connect (inicio do pareamento), o disconnect e a sincronizacao com o provedor ja usam. Com
+-- isso o status e o QR code passam a ser so o que o servidor soube do provedor, e nao o que o navegador gravou
+-- (historia de usuario 8 da spec 053).
+--
+-- Funciona porque o passo 1 concedeu status e qr_code por COLUNA, e nao pela tabela: um REVOKE de coluna so tira o
+-- que foi concedido por coluna. Depende, portanto, da migration do ticket 02: com o GRANT de tabela de volta, este
+-- REVOKE nao tiraria nada (o pgTAP 77 acusa). service_role (privilegios proprios), RLS, policies, a publicacao do
+-- Realtime e a leitura (SELECT) nao sao tocados: a tela segue lendo status e qr_code e os recebendo pelo Realtime.
+--
+-- Depois desta migration o navegador grava 16 colunas, todas de configuracao: cinco de envio, nove modelos, as
+-- palavras-chave e updated_at. Uma versao da tela que ainda grave status ou qr_code (a anterior ao ticket 03)
+-- recebe 42501 ao conectar e desconectar ate ser recarregada com a versao atual.
+--
+-- Um erro 42501 se corrige concedendo a COLUNA certa, nunca a tabela (convencao da migration do ticket 02). O
+-- pgTAP 77 e o guarda, com a lista exata de colunas.
+
+revoke update (status, qr_code) on public.whatsapp_instances from authenticated;

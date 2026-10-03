@@ -1,18 +1,21 @@
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(34);
+select plan(38);
 
--- Spec 053, ticket 02 (passo 1): o navegador le e grava whatsapp_instances so pelas colunas liberadas uma a uma.
+-- Spec 053, tickets 02 e 04: o navegador le e grava whatsapp_instances so pelas colunas liberadas uma a uma.
 -- instance_token e a credencial da instancia na Uazapi e nunca chega ao navegador (ADR 010, decisao 4). As migrations
 -- 036 e 051 tinham concedido a tabela inteira a authenticated, o que desfazia o fechamento por coluna da 009. Este
 -- teste e o guarda: falha se um GRANT de tabela voltar, se uma coluna for aberta a mais ou se alguma faltar abrir.
 --
+-- Este arquivo descreve o estado FINAL, depois do ticket 04: o navegador grava so configuracao. Num banco que tem apenas
+-- o ticket 02 (passo 1), as assercoes do conjunto de UPDATE e as que gravam status e qr_code falham por desenho. Nao
+-- "conserte" aplicando o ticket 04 antes de a tela e a Edge Function novas estarem no ar.
+--
 -- Convencao: coluna nova de whatsapp_instances nasce fechada. Para a tela le-la, a migration que a cria concede
 -- "grant select (coluna)" e, para grava-la, "grant update (coluna)", e a lista t77_contrato abaixo muda no mesmo
--- commit. Um erro 42501 se corrige concedendo a COLUNA certa, nunca a tabela.
---
--- Passo 2 (ticket 04): status e qr_code deixam de ser gravaveis. Entao "grava" vira false nas duas linhas, o conjunto
--- de UPDATE passa a ter 16 colunas e a assercao do Gerente que grava status e qr_code passa a esperar 42501.
+-- commit. Um erro 42501 se corrige concedendo a COLUNA certa, nunca a tabela. Excecao: status e qr_code sao do servidor
+-- (a Edge Function whatsapp-integration os grava, com service_role: o connect, o disconnect e a sincronizacao com o
+-- provedor). Se a tela precisar gravar um deles, mova a escrita para a Edge Function em vez de conceder a coluna.
 --
 -- Todas as comparacoes sao de privilegio, de codigo de erro e de contagem de linhas; nenhuma le ou mostra o valor do
 -- token. Tenants, usuarios e instancias de teste nascem nesta transacao e somem no rollback; nenhuma e conectada.
@@ -28,8 +31,8 @@ insert into t77_contrato (coluna, le, grava) values
   ('id', true, false),
   ('tenant_id', true, false),
   ('instance_name', true, false),
-  ('qr_code', true, true),
-  ('status', true, true),
+  ('qr_code', true, false),
+  ('status', true, false),
   ('send_confirmation', true, true),
   ('send_reminders', true, true),
   ('send_cancellation', true, true),
@@ -127,7 +130,7 @@ insert into t77_sql (chave, sql)
 select 'config', format(
   'update public.whatsapp_instances set %s, updated_at = now() where tenant_id = (select tenant_id from t77_ctx)',
   string_agg(format('%1$I = %1$I', coluna), ', ' order by coluna))
-from t77_contrato where grava and coluna not in ('status', 'qr_code', 'updated_at');
+from t77_contrato where grava and coluna <> 'updated_at';
 
 grant select on t77_ctx, t77_sql to authenticated;
 
@@ -196,7 +199,7 @@ select set_eq(
     where a.attrelid = 'public.whatsapp_instances'::regclass and a.attnum > 0 and not a.attisdropped
       and has_column_privilege('authenticated', a.attrelid, a.attnum, 'UPDATE')$$,
   $$select coluna from t77_contrato where grava$$,
-  'authenticated grava exatamente as 18 colunas do contrato (16 depois do ticket 04); a diferenca mostra o excesso ou a falta'
+  'authenticated grava exatamente as colunas de configuracao do contrato (grava = true); a diferenca mostra o excesso ou a falta'
 );
 
 -- Nominal, com a instrucao de correcao na mensagem. A de environment passa vazia onde a coluna ainda nao existe.
@@ -209,6 +212,16 @@ select is(
       or has_column_privilege('authenticated', a.attrelid, a.attnum, 'UPDATE')),
   null::text[],
   'instance_token, provider_instance_id, provider e environment nao tem SELECT nem UPDATE para o navegador; se alguma aparecer, revogue e conceda so as colunas do contrato (spec 053), nunca a tabela'
+);
+
+-- Quem grava status e qr_code e a Edge Function, com service_role (privilegio proprio, que o fechamento do navegador
+-- nao toca). Sem isso a tela nao conectaria mais. Se falhar, o array mostra a coluna que faltou.
+select is(
+  (select array_agg(c order by c)
+   from unnest(array['qr_code', 'status']) as c
+   where not has_column_privilege('service_role', 'public.whatsapp_instances', c, 'UPDATE')),
+  null::text[],
+  'service_role grava status e qr_code: a Edge Function whatsapp-integration e quem os grava'
 );
 
 select ok(
@@ -296,10 +309,18 @@ select throws_ok(
   'Gerente nao regrava id'
 );
 
-select is(
-  pg_temp.tenta($$update public.whatsapp_instances set status = status, qr_code = null, updated_at = now() where tenant_id = (select tenant_id from t77_ctx)$$),
-  'ok:1',
-  'passo 1: Gerente ainda grava status e qr_code, que a tela atual grava ao conectar e desconectar (o ticket 04 troca por 42501)'
+-- Cada coluna na sua assercao: um update das duas juntas passaria se so uma delas estivesse fechada. O valor e
+-- constante: "status = status" leria a coluna, e um 42501 por falta de SELECT passaria por UPDATE fechado.
+select throws_ok(
+  $$update public.whatsapp_instances set status = 'disconnected' where tenant_id = (select tenant_id from t77_ctx)$$,
+  '42501', null,
+  'Gerente nao regrava status, que e do servidor (a Edge Function grava ao conectar, desconectar e sincronizar); se a tela precisar dele, mova a escrita para a Edge Function, nao conceda a coluna'
+);
+
+select throws_ok(
+  $$update public.whatsapp_instances set qr_code = null where tenant_id = (select tenant_id from t77_ctx)$$,
+  '42501', null,
+  'Gerente nao regrava qr_code, que e do servidor (mesma regra do status)'
 );
 
 -- Gerente com tenant_id nulo: o bloqueio e de privilegio, nao da policy -----------------------------------------------
@@ -323,6 +344,12 @@ select throws_ok(
   $$update public.whatsapp_instances set instance_token = null where tenant_id = (select tenant_id from t77_ctx)$$,
   '42501', null,
   'Gerente sem tenant recebe 42501 ao regravar instance_token'
+);
+
+select throws_ok(
+  $$update public.whatsapp_instances set status = 'disconnected' where tenant_id = (select tenant_id from t77_ctx)$$,
+  '42501', null,
+  'Gerente sem tenant recebe 42501 ao regravar status (privilegio de coluna, e nao 0 linhas por causa da policy)'
 );
 
 select is(
@@ -363,6 +390,12 @@ select throws_ok(
   $$update public.whatsapp_instances set instance_token = null where tenant_id = (select tenant_id from t77_ctx)$$,
   '42501', null,
   'Proprietario nao regrava instance_token'
+);
+
+select throws_ok(
+  $$update public.whatsapp_instances set status = 'disconnected' where tenant_id = (select tenant_id from t77_ctx)$$,
+  '42501', null,
+  'Proprietario nao regrava status: a policy libera a linha dele, o privilegio de coluna fecha a escrita'
 );
 
 select is(
