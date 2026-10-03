@@ -37,11 +37,11 @@ O navegador passa a ler e gravar `whatsapp_instances` só por colunas liberadas 
 | `id` | sim | não | Chave primária. O Realtime exige SELECT nela; sem isso responde 401. |
 | `tenant_id` | sim | não | Filtro da assinatura Realtime e do `WHERE` das gravações. |
 | `instance_name` | sim | não | A tela mostra o nome e o envia à Edge Function. |
-| `status`, `qr_code` | sim | passo 1: sim; passo 2: não | Hoje a tela os grava ao conectar e ao desconectar. |
+| `status`, `qr_code` | sim | passo 1: sim; passo 2: não | Antes do ticket 03 a tela os gravava ao conectar e ao desconectar. Na `dev`, só a Edge Function os grava, e a tela os lê e os recebe pelo Realtime (a `main` e a PROD seguem com a tela antiga até o ticket 05). |
 | `send_confirmation`, `send_reminders`, `send_cancellation`, `send_welcome_balcao`, `reminder_hours` | sim | sim | Configuração dos envios. |
 | `template_confirmation`, `template_reschedule`, `template_cancellation`, `template_reminder`, `template_welcome_balcao`, `template_first_contact`, `template_professional_created`, `template_professional_rescheduled`, `template_professional_cancelled` | sim | sim | Modelos de mensagem. |
 | `auto_reply_keywords` | sim | sim | Palavras-chave da resposta automática. |
-| `updated_at` | não | sim | A tela envia; ninguém lê. |
+| `updated_at` | não | sim | A tela envia; a Edge Function o lê como relógio da janela de pareamento (`isRecentPairing`, 150 s). Como o navegador o grava, ele pode renovar essa janela (ver "Out of Scope"). |
 | `instance_token` | não | não | Credencial da instância. |
 | `provider_instance_id` | não | não | Vínculo com a Uazapi. |
 | `environment` | não | não | Marca que a rotina de exclusão do 7º dia usa (spec 052, ticket 13). |
@@ -104,7 +104,7 @@ grant update (
 ) on public.whatsapp_instances to authenticated;
 ```
 
-O passo 2 (ticket 04) é uma linha: `revoke update (status, qr_code) on public.whatsapp_instances from authenticated;`.
+O passo 2 (ticket 04) é uma linha: `revoke update (status, qr_code) on public.whatsapp_instances from authenticated;`. Ele depende do ticket 02: com o GRANT de tabela de volta, um REVOKE de coluna não tira nada (e termina sem erro), e reaplicar a migration do ticket 02 depois da 04 devolve `status` e `qr_code` ao navegador, porque ela concede as 18 colunas. Quem precisar reaplicar a do 02 reaplica a do 04 em seguida, e confere o resultado pela consulta abaixo.
 
 Não mexe em `service_role` (privilégios próprios, usados pela Edge Function e pelas rotinas), na RLS, nas policies, na publicação do Realtime nem na `REPLICA IDENTITY`.
 
@@ -140,10 +140,11 @@ Por isso o contrato de leitura inclui `id` e `tenant_id`. O desenho por coluna j
 Um arquivo novo, `77_colunas_da_instancia_whatsapp_no_navegador.test.sql` (o 75 é do ticket 13 e o 76, do ticket 14, os dois da spec 052), com a lista exata como fonte única:
 
 - Nenhum privilégio de tabela para `authenticated` (SELECT, INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER) nem para `anon`.
-- O conjunto de colunas com SELECT para `authenticated` é exatamente as 20 do contrato (`set_eq` contra `pg_attribute` + `has_column_privilege`). O conjunto com UPDATE é exatamente as 18 (16 depois do ticket 04). Nenhuma coluna com INSERT. Nenhuma coluna com qualquer privilégio para `anon`. A comparação por conjunto pega os dois erros: coluna aberta a mais, e a que faltou abrir.
+- O conjunto de colunas com SELECT para `authenticated` é exatamente as 20 do contrato (`set_eq` contra `pg_attribute` + `has_column_privilege`). O conjunto com UPDATE é exatamente as 16 de configuração (no passo 1 eram 18, com `status` e `qr_code`). Nenhuma coluna com INSERT. Nenhuma coluna com qualquer privilégio para `anon`. A comparação por conjunto pega os dois erros: coluna aberta a mais, e a que faltou abrir.
 - Asserção nominal, com mensagem que diz o que fazer, de que `instance_token`, `provider_instance_id`, `provider` e `environment` não têm SELECT nem UPDATE (a de `environment` passa vazia onde a coluna ainda não existe, como na PROD antes do ticket 13).
 - Comportamento por perfil, com RLS e papel reais (`request.jwt.claim.sub` e `set local role authenticated`, como o pgTAP 32): Gerente do tenant, **Gerente com `tenant_id` nulo**, Barbeiro, Proprietário e `anon`. Os casos são os da lista validada acima e usam `throws_ok(..., '42501', null, ...)`, sem depender do texto da mensagem.
 - A asserção do Gerente com `tenant_id` nulo prova que o bloqueio é de privilégio e não da policy: o `select instance_token` dele dá 42501 (não 0 linhas), e a leitura das 20 colunas e o `update` de modelo devolvem 0 linhas, sem erro.
+- Depois do passo 2: `status` e `qr_code` dão 42501 para o Gerente, o Gerente com `tenant_id` nulo e o Proprietário (a atribuição é um valor constante, para o erro vir do privilégio de UPDATE e não da falta de SELECT), e `service_role` mantém UPDATE nas duas, porque é quem passa a gravá-las. O arquivo descreve o estado final: num banco só com o ticket 02, essas asserções falham por desenho.
 - O token e `environment` do Proprietário e do Gerente nunca aparecem em saída de teste: as asserções comparam privilégio e contagem, não o valor.
 
 ### Testes legados
@@ -152,24 +153,25 @@ Um arquivo novo, `77_colunas_da_instancia_whatsapp_no_navegador.test.sql` (o 75 
 
 ### Riscos de regressão do front e como o plano os cobre
 
-1. **A tela grava `status` e `qr_code`** (`Whatsapp.tsx:397` e `:494`). Com o UPDATE fechado nessas duas colunas, conectar e desconectar dariam 42501. O passo 1 as mantém graváveis; o ticket 03 tira as escritas da tela antes de o ticket 04 revogá-las.
+1. **A tela gravava `status` e `qr_code`** (`Whatsapp.tsx:397` e `:494`, antes do ticket 03). Com o UPDATE fechado nessas duas colunas, conectar e desconectar dariam 42501. O passo 1 as mantém graváveis; o ticket 03 tira as escritas da tela antes de o ticket 04 revogá-las.
 2. **A pré-gravação de `connecting` alimenta a janela de pareamento** da Edge Function. Ao mover a gravação para a Edge Function, a sincronização da mesma chamada tem de ver o estado já gravado. Cobertura: testes Deno novos para o `connect` e os existentes da janela de pareamento (`index_test.ts`).
 3. **`select *` e `.select()` sem lista** passam a dar 42501 (provado). A tela já lista colunas (`WHATSAPP_INSTANCE_COLUMNS`), e o teste "deve buscar somente colunas nao secretas da instancia" fixa a lista. Código novo precisa listar.
 4. **Coluna nova que a tela lê ou grava sem grant** dá 42501. Foi isso que levou à migration 036. Cobertura: a convenção e o teste de guarda, cuja mensagem de falha diz para conceder a coluna.
 5. **Realtime.** Precisa de SELECT em `id` e `tenant_id`, e o payload perde as colunas fechadas. A tela só usa os campos da lista (`toWhatsappInstance`), e o teste do Realtime já passa um payload com `instance_token` para provar que ele não entra no estado. Cobertura: roteiro manual no DEV. Na PROD, a `apply_rls` tem o mesmo hash que a do DEV (conferido em 2026-10-01), então filtra por coluna do mesmo jeito.
-6. **`view_tenants_management`** é `security_invoker` e lê `status` e `tenant_id` da tabela. Os dois ficam liberados; provado para Gerente e Proprietário. A tela Admin > Tenants faz `select('*')` da view (`Tenants.tsx:95`), não da tabela.
+6. **`view_tenants_management`** é `security_invoker` e lê `status` e `tenant_id` da tabela. Os dois ficam liberados; provado para Gerente e Proprietário. A tela Admin > Tenants faz `select('*')` da view (em `fetchTenants`, `Tenants.tsx`), não da tabela.
 7. **Funções e policies que leem a tabela com o privilégio de quem chama.** Nenhuma no DEV: as três funções que citam a tabela são as da exclusão do ticket 13, todas `SECURITY DEFINER` e sem execute para `authenticated`; nenhuma policy de outra tabela a cita; a chave estrangeira da idempotência é checada pelo dono da tabela. Conferido na PROD em 2026-10-01: nenhuma função SQL, policy de outra tabela ou rotina agendada a cita; só a view `view_tenants_management` e a mesma chave estrangeira.
 8. **Edge Functions** usam um único cliente com `service_role` (`createClient(supabaseUrl, supabaseServiceRoleKey)`), com privilégios próprios que o fechamento não toca.
-9. **Aba aberta com a tela antiga depois do passo 2** dá 42501 ao conectar ou desconectar até recarregar. O passo 2 só vai depois de a tela nova estar no ar no ambiente.
+9. **Aba aberta com a tela antiga depois do passo 2** dá 42501 ao conectar ou desconectar até recarregar. O passo 2 só vai depois de a tela nova estar no ar no ambiente. No DEV, o usuário aceitou o risco (2026-10-02): o passo 2 foi aplicado antes do push da `dev`, então o site do DEV (Cloudflare), que ainda roda a tela antiga, dá 42501 ao conectar e desconectar até o próximo push. A tela nova foi confirmada no localhost (roteiro do ticket 04, 2026-10-02), que roda a árvore da `dev` contra o banco e a função do DEV: conectar, cancelar o pareamento, ligar e desligar um envio e salvar um modelo funcionam, e os logs mostram que `status` e `qr_code` foram gravados só pela Edge Function.
 10. **Corrigir um 42501 depois do fechamento** é conceder a coluna certa, nunca a tabela. O cabeçalho da migration e o ticket de promoção dizem isso.
 11. **PostgREST** não precisa de recarga de schema: o Postgres confere o privilégio por requisição, e o desenho por coluna já foi o contrato desta tabela de 2026-08-01 a 2026-08-23 e é o de `appointments` desde a 044.
 12. O pgTAP 75 (ticket 13) e os demais testes que gravam como `postgres` não são afetados.
 
 ### Ordem de entrega e promoção
 
-- No DEV: ticket 01, depois o 02 (passo 1). O 03 (tela e Edge Function) é independente do 02 e passa com os dois estados de GRANT. O 04 (passo 2) vem depois do 02 e do 03.
+- No DEV: ticket 01, depois o 02 (passo 1). O 03 (tela e Edge Function) é independente do 02 e passa com os dois estados de GRANT. O 04 (passo 2) vem depois do 02 e do 03; foi aplicado em 2026-10-02, sem o push da `dev` por decisão do usuário (ticket 04).
 - A ordem entre esta spec e a migration do ticket 13 (que cria `environment`) é indiferente: se `environment` nasce depois do fechamento, nasce fechada; se já existe, o fechamento a cobre. A migration do ticket 13 está em `dev` (integrada em 2026-10-02) e a coluna existe no DEV; na PROD ela ainda não existe.
 - Na PROD: o passo 1 pode ir antes de qualquer outra coisa, porque a tela que está lá só lê e grava colunas da lista (conferido: `main` tem o mesmo `Whatsapp.tsx` e o mesmo `MobileMaisDrawer.tsx` do `dev`). O passo 2 só depois de a tela e a Edge Function novas estarem publicadas. Nada altera a PROD sem comando do usuário. A conferência de leitura já foi autorizada e feita em 2026-10-01.
+- A função da `dev` chama quatro RPCs da spec 052 que as migrations da `main` não têm (`get_tenant_access_state`, `register_whatsapp_message_discard` e `discard_whatsapp_message_outbox`, do ticket 04, e `whatsapp_instance_deletion_verdict`, do ticket 13; sem a primeira, o despachante não envia). Publicá-la na PROD exige as quatro lá antes, o que na prática é o banco da spec 052 inteiro (nenhuma migration da 052 está em `main`, e a promoção da 052 ainda não foi feita), então esse passo anda junto com a promoção da 052; a alternativa, se o usuário quiser adiantar só a 053, é uma variante da função da `main` com as duas mudanças da 053 (a pré-gravação do `connect` e o guarda do cancelar pareamento). Entre a tela e a função não há ordem obrigatória para o `connect`: a tela nova com a função da `main` funciona (o adaptador do provedor nunca devolve `disconnected` ao conectar, e a função da `main` grava `connecting` e o QR antes de responder), e a tela da `main` com a função nova também. A ordem que importa é a do passo 2, depois das duas.
 
 **Consulta de conferência** (só leitura; serve ao DEV antes e depois de cada migration e à PROD depois da autorização). Devolve uma linha por coluna e a ACL da tabela:
 
@@ -185,14 +187,14 @@ order by a.attnum;
 select relacl::text from pg_class where oid = 'public.whatsapp_instances'::regclass;
 ```
 
-Hoje, no DEV, a primeira devolve `true` em `auth_select` e `auth_update` para as 26 colunas, e a segunda devolve `{postgres=arwdDxtm/postgres,service_role=arwdDxtm/postgres,authenticated=rw/postgres}`. Depois do passo 1, a ACL perde o `authenticated=rw/postgres` e a primeira passa a bater com o contrato de colunas.
+Antes do passo 1, no DEV, a primeira devolvia `true` em `auth_select` e `auth_update` para as 26 colunas, e a segunda devolvia `{postgres=arwdDxtm/postgres,service_role=arwdDxtm/postgres,authenticated=rw/postgres}`. Depois do passo 1, a ACL perde o `authenticated=rw/postgres` e a primeira passa a bater com o contrato de colunas (20 de leitura e 18 de escrita). Depois do passo 2 (o estado final, que o DEV tem desde 2026-10-02), a ACL é a mesma, `auth_select` é `true` nas 20 colunas do contrato e `auth_update` é `true` só nas 16 de configuração (`status` e `qr_code` passam a `false`).
 
 ## Testing Decisions
 
 - **Bom teste aqui** olha de fora, com o papel real: quem lê ou grava qual coluna, e o que a tela e a Edge Function fazem. Não olha como o GRANT foi escrito: a comparação é com o conjunto de colunas, não com o texto da migration.
-- **Banco (pgTAP no DEV, dentro de `begin; ... rollback;`).** O arquivo 76 (lista exata, privilégio de tabela, comportamento por perfil, Gerente com `tenant_id` nulo) e os legados consertados. Precedentes: pgTAP 32 (Gerente com `tenant_id` nulo), 56 (guarda por privilégio de coluna em `appointments`, com `42501`) e 75 (instância de teste com `environment`). Cada tenant, usuário e instância do teste nasce na transação e some no rollback. Instância de teste nunca conectada, para nada sair pelo WhatsApp.
+- **Banco (pgTAP no DEV, dentro de `begin; ... rollback;`).** O arquivo 77 (lista exata, privilégio de tabela, comportamento por perfil, Gerente com `tenant_id` nulo) e os legados consertados. Precedentes: pgTAP 32 (Gerente com `tenant_id` nulo), 56 (guarda por privilégio de coluna em `appointments`, com `42501`) e 75 (instância de teste com `environment`). Cada tenant, usuário e instância do teste nasce na transação e some no rollback. Instância de teste nunca conectada, para nada sair pelo WhatsApp.
 - **Tela (Vitest).** `Whatsapp.test.tsx`: conectar e desconectar não chamam `.update` em `whatsapp_instances`; a lista do `select` continua a mesma; os payloads de configuração e de modelo continuam iguais; o teste do Realtime com `instance_token` no payload continua. Precedente: o próprio arquivo.
-- **Edge Function (Deno).** `index_test.ts`: o `connect` grava `connecting`, QR nulo e `updated_at` antes de chamar o provedor; falha do provedor reverte para `disconnected`; a janela de pareamento continua valendo; `resume` não grava a pré-gravação. Precedente: os testes de `manage-instance` do mesmo arquivo.
+- **Edge Function (Deno).** `index_test.ts`: o `connect` grava `connecting`, QR nulo e `updated_at` antes de chamar o provedor; falha do provedor reverte para `disconnected`; a janela de pareamento continua valendo; `resume` não grava a pré-gravação; o `connect` chamado com o JWT do Gerente na entrada grava com a chave de `service_role`, nunca com a credencial de quem chama (é o que o passo 2 pressupõe: com um cliente que use o JWT de quem chama, conectar e desconectar dariam 42501 só em produção). O teste dirige a rota `connect`; as outras rotas usam o mesmo cliente único, criado no começo de cada requisição. Precedente: os testes de `manage-instance` do mesmo arquivo.
 - **Roteiro manual no DEV** (o usuário digita a senha do Gerente): a tela carrega; ligar e desligar um envio; salvar um modelo; "Gerar QR Code" mostra o QR; uma segunda aba recebe a mudança em tempo real; nos quadros do WebSocket do navegador não aparecem `instance_token` nem `environment`; "Desconectar Aparelho" volta ao estado inicial; Admin > Tenants mostra o status. Ao conectar, usar a instância de teste do DEV sem agendamento ativo, para nenhuma mensagem real sair.
 - **Conferência por consulta** antes e depois de cada migration: `has_column_privilege` por coluna e `relacl`, no DEV e (com autorização) na PROD.
 
@@ -204,7 +206,7 @@ Hoje, no DEV, a primeira devolve `true` em `auth_select` e `auth_update` para as
 - Fazer a Edge Function `manage-instance` usar o `instance_name` da linha em vez do do corpo da requisição. As chamadas à Uazapi autenticam pelo token, mas vale fechar.
 - O fallback do `/webhook` por nome da instância (SEC-003 da auditoria de 2026-09-01).
 - `customers.token_acesso` e `customers.token_expirado_em` (credencial do Canal do Cliente): qualquer usuário `authenticated` do tenant, Gerente ou Barbeiro, lê e grava pelo GRANT de tabela e pela policy do tenant, e a migration 051 também deu `SELECT, UPDATE, INSERT` na tabela `customers`. Não foi avaliado se isso é intencional. Merece spec própria.
-- Um gatilho que preencha `updated_at` no banco, em vez de a tela enviá-lo.
+- Um gatilho que preencha `updated_at` no banco, em vez de a tela enviá-lo, e, junto, uma coluna só do servidor para o relógio da janela de pareamento (hoje o navegador grava `updated_at` e a janela de 150 s o usa: ligar um envio ou salvar um modelo durante o pareamento a renova, e um `disconnected` do provedor segue ignorado por mais tempo; não escolhe `status` nem QR, mas enfraquece "o estado é o que o servidor soube").
 - Generalizar o teste de guarda para as outras tabelas fechadas por coluna. `appointments` (migration 044) usa o mesmo idioma, e um `GRANT UPDATE ON public.appointments TO authenticated` futuro a reabriria do mesmo jeito; o pgTAP 56 cobre a autoria, não a lista inteira.
 
 ## Further Notes

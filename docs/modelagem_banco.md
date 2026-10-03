@@ -827,9 +827,10 @@ create policy payments_delete_policy on public.payments
 -- Tabela: whatsapp_instances
 -- -------------------------------------------------------------------------
 -- O gerente consulta e atualiza, dentro do tenant, só as colunas liberadas uma a uma (contrato da
--- spec 053): lê 20 colunas e grava 18 (16 depois do passo 2, que tira status e qr_code da escrita).
--- INSERT, DELETE, instance_token, provider_instance_id, provider e environment permanecem
--- exclusivos do backend/service_role.
+-- spec 053): lê 20 colunas e grava 16, todas de configuração. status e qr_code são do servidor (a
+-- Edge Function os grava com service_role); a tela só os lê e os recebe pelo Realtime. INSERT,
+-- DELETE, instance_token, provider_instance_id, provider e environment permanecem exclusivos do
+-- backend/service_role.
 create policy whatsapp_instances_select_policy on public.whatsapp_instances
   for select to authenticated
   using (
@@ -857,12 +858,13 @@ create policy whatsapp_message_idempotency_select_policy on public.whatsapp_mess
     )
   );
 
--- Migration 009 revogou a tabela inteira e concedeu só colunas de SELECT/UPDATE; as migrations
--- 036 e 051 concederam a tabela inteira de volta, e a migration do ticket 02 da spec 053 refaz o
--- fechamento com o contrato abaixo (20 colunas de leitura, 18 de escrita). Não há políticas de
--- INSERT/DELETE para o navegador. Coluna nova nasce fechada: a migration que a cria concede
--- `grant select (coluna)` e `grant update (coluna)` à tela, e um erro 42501 se corrige concedendo a
--- coluna, nunca a tabela. O pgTAP 77 guarda a lista exata.
+-- Privilégio do navegador só por coluna, nunca pela tabela inteira (as migrations 036 e 051 tinham
+-- concedido a tabela e aberto o token; as dos tickets 02 e 04 da spec 053 refizeram o fechamento).
+-- O bloco abaixo é o estado final. Não há políticas de INSERT/DELETE para o navegador. Coluna nova
+-- nasce fechada: a migration que a cria concede `grant select (coluna)` e `grant update (coluna)`
+-- à tela, e um erro 42501 se corrige concedendo a coluna, nunca a tabela (para status e qr_code, se
+-- a tela precisar gravar, a correção é mover a escrita para a Edge Function). O pgTAP 77 guarda a
+-- lista exata.
 revoke all on table public.whatsapp_instances from anon, authenticated;
 grant select (id, tenant_id, instance_name, qr_code, status,
   send_confirmation, send_reminders, send_cancellation, send_welcome_balcao, reminder_hours,
@@ -871,7 +873,7 @@ grant select (id, tenant_id, instance_name, qr_code, status,
   template_professional_created, template_professional_rescheduled, template_professional_cancelled,
   auto_reply_keywords)
   on public.whatsapp_instances to authenticated;
-grant update (qr_code, status,
+grant update (
   send_confirmation, send_reminders, send_cancellation, send_welcome_balcao, reminder_hours,
   template_confirmation, template_reschedule, template_cancellation, template_reminder,
   template_welcome_balcao, template_first_contact,
