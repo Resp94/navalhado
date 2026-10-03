@@ -29,6 +29,19 @@ interface MobileMaisDrawerProps {
   onLogout: () => void;
 }
 
+type StatusDoWhatsapp = 'connected' | 'connecting' | 'hibernated' | 'disconnected' | 'loading';
+
+// O ponto e o texto do atalho "Robô WhatsApp" por estado da Instância WhatsApp (CONTEXT.md). A sessão pausada
+// ('hibernated') guarda as credenciais e não é falha: o ponto é neutro, e não o vermelho do desconectado.
+// Enquanto carrega, o atalho aparece como desconectado, como sempre foi.
+const WHATSAPP_NO_MENU: Record<StatusDoWhatsapp, { ponto: string; texto: string; aria: string }> = {
+  connected: { ponto: 'bg-success shadow-[0_0_6px_var(--color-success)]', texto: 'Conectado', aria: 'Conectado' },
+  connecting: { ponto: 'bg-warning', texto: 'Conectando...', aria: 'Conectando' },
+  hibernated: { ponto: 'bg-text-secondary', texto: 'Pausado', aria: 'Pausado' },
+  disconnected: { ponto: 'bg-error', texto: 'Desconectado', aria: 'Desconectado' },
+  loading: { ponto: 'bg-error', texto: 'Desconectado', aria: 'Desconectado' },
+};
+
 const STATUS_ITEM_CLASS =
   'flex-1 bg-bg-primary border border-border rounded-lg p-3 flex flex-col gap-[0.4rem] cursor-pointer min-h-11 text-left text-text-primary transition-colors duration-200 ease-[cubic-bezier(0.4,0,0.2,1)] touch-manipulation hover:border-brand-primary';
 
@@ -47,7 +60,7 @@ export const MobileMaisDrawer: React.FC<MobileMaisDrawerProps> = ({
 }) => {
   const navigate = useNavigate();
   const { addToast } = useToast();
-  const [whatsappStatus, setWhatsappStatus] = useState<'connected' | 'disconnected' | 'connecting' | 'loading'>('loading');
+  const [whatsappStatus, setWhatsappStatus] = useState<StatusDoWhatsapp>('loading');
 
   useEffect(() => {
     if (!isOpen || !tenantId) return;
@@ -62,13 +75,8 @@ export const MobileMaisDrawer: React.FC<MobileMaisDrawerProps> = ({
           .maybeSingle();
 
         if (isMounted) {
-          if (data?.status === 'connected') {
-            setWhatsappStatus('connected');
-          } else if (data?.status === 'connecting') {
-            setWhatsappStatus('connecting');
-          } else {
-            setWhatsappStatus('disconnected');
-          }
+          const status = data?.status;
+          setWhatsappStatus(status === 'connected' || status === 'connecting' || status === 'hibernated' ? status : 'disconnected');
         }
       } catch {
         if (isMounted) setWhatsappStatus('disconnected');
@@ -110,12 +118,7 @@ export const MobileMaisDrawer: React.FC<MobileMaisDrawerProps> = ({
     ? Object.values(businessHours).filter((d) => d.active).length
     : 6;
 
-  const statusDotClass =
-    whatsappStatus === 'connected'
-      ? 'bg-success shadow-[0_0_6px_var(--color-success)]'
-      : whatsappStatus === 'connecting'
-        ? 'bg-warning'
-        : 'bg-error';
+  const whatsappNoMenu = WHATSAPP_NO_MENU[whatsappStatus];
 
   return (
     <MobileBottomSheet isOpen={isOpen} onClose={onClose} title="Menu e atalhos" maxHeight="90vh">
@@ -137,21 +140,15 @@ export const MobileMaisDrawer: React.FC<MobileMaisDrawerProps> = ({
             type="button"
             className={STATUS_ITEM_CLASS}
             onClick={() => handleNavigate('/whatsapp')}
-            aria-label={`Robô WhatsApp: ${whatsappStatus === 'connected' ? 'Conectado' : whatsappStatus === 'connecting' ? 'Conectando' : 'Desconectado'}. Clique para gerenciar.`}
+            aria-label={`Robô WhatsApp: ${whatsappNoMenu.aria}. Clique para gerenciar.`}
           >
             <div className="flex items-center gap-[0.4rem] text-[0.6875rem] font-bold uppercase text-text-secondary">
               <HugeiconsIcon icon={WhatsappIcon} size={16} />
               <span>Robô WhatsApp</span>
             </div>
             <div className="flex items-center gap-[0.35rem] text-xs font-semibold text-text-primary">
-              <span className={`w-[7px] h-[7px] rounded-full ${statusDotClass}`} />
-              <span>
-                {whatsappStatus === 'connected'
-                  ? 'Conectado'
-                  : whatsappStatus === 'connecting'
-                  ? 'Conectando...'
-                  : 'Desconectado'}
-              </span>
+              <span className={`w-[7px] h-[7px] rounded-full ${whatsappNoMenu.ponto}`} />
+              <span>{whatsappNoMenu.texto}</span>
             </div>
           </button>
 
