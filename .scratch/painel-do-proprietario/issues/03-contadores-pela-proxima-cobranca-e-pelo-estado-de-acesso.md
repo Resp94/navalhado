@@ -12,11 +12,21 @@ A RPC devolve `released_tenants` e `blocked_tenants` no lugar de `active_tenants
 
 **Blocked by:** 02 (Faturamento do mês e Evolução da receita vêm das cobranças aprovadas)
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Migration aplicada só no DEV pelo MCP
-- [ ] pgTAP (o arquivo do ticket 02): MRR com `active`, `past_due`, descida agendada (conta o plano menor) e as situações que ficam fora
-- [ ] pgTAP: liberadas e bloqueadas com uma barbearia por caso: teste, ativa, cortesia, cancelada com e sem período pago, bloqueada, desbloqueada à mão (liberada) e teste vencido hoje sem bloqueio gravado (bloqueada)
-- [ ] Vitest do Dashboard: os rótulos e textos novos com os campos novos do contrato; nenhum texto "Suspensas" ou "Inadimplentes"
-- [ ] Nenhum outro chamador usa os campos antigos (conferido por busca)
-- [ ] Gates de lint, Vitest e build passam
+- [x] Migration aplicada só no DEV pelo MCP
+- [x] pgTAP (o arquivo do ticket 02): MRR com `active`, `past_due`, descida agendada (conta o plano menor) e as situações que ficam fora
+- [x] pgTAP: liberadas e bloqueadas com uma barbearia por caso: teste, ativa, cortesia, cancelada com e sem período pago, bloqueada, desbloqueada à mão (liberada) e teste vencido hoje sem bloqueio gravado (bloqueada)
+- [x] Vitest do Dashboard: os rótulos e textos novos com os campos novos do contrato; nenhum texto "Suspensas" ou "Inadimplentes"
+- [x] Nenhum outro chamador usa os campos antigos (conferido por busca)
+- [x] Gates de lint, Vitest e build passam
+
+## Resultado
+
+Commit 0850798. Migration `20261003204455_054_ticket03_mrr_e_barbearias_liberadas_e_bloqueadas.sql`, aplicada só no DEV. O MRR usa `coalesce(scheduled_plan_id, plan_id)` das assinaturas `active` e `past_due`; liberadas e bloqueadas contam por `private.subscription_access_state(sub, now())` por linha de `tenant_subscriptions` (a mesma regra de `tenant_access_state`, sem reler a assinatura), então barbearia sem assinatura fica fora. pgTAP 80: uma barbearia por caso (13), cada uma provando liberadas/bloqueadas/MRR por diferença.
+
+Outro chamador dos campos antigos: o pgTAP `65_periodo_de_teste_e_estado_de_acesso.test.sql` (4 asserções) foi acompanhado ao contrato novo; 76/76 no DEV. Nenhum outro leitor de `active_tenants`/`suspended_tenants` no front, nas Edge Functions nem nos docs.
+
+No localhost contra o DEV, logado como Proprietário: MRR R$ 0,00, 4 liberadas, 0 bloqueadas, igual à consulta independente (1 cancelada com período pago e 3 em teste; nenhuma `active`).
+
+Fora da regra do ticket, anotado para decisão: a cancelada que assinou de novo está liberada e vai ser cobrada, mas fica fora do MRR (o status ainda é `canceled`); a `past_due` com 5 dias ou mais conta em bloqueadas e segue no MRR.
