@@ -25,4 +25,6 @@ Commit b0967e1. Migration `20261003204038_054_ticket02_faturamento_pelas_cobranc
 
 A parte do "site de DEV" ficou provada no localhost contra o banco do DEV, logado como Proprietário: o painel mostra Faturamento do mês R$ 389,80, igual à soma de `billing_charges` aprovadas do mês de Brasília no banco (R$ 389,80). No site `dev.navalhado.com.br` isso só aparece depois do push.
 
-Achados da revisão em aberto (testes, sem mudar o SQL): provar o zero do mês vazio com um valor conhecido, e uma cobrança em `ms + 1 mês` que deve ficar fora de `revenue_this_month`.
+Revisão (`/code-review`) aplicada em 2026-10-03:
+- Migration `20261003232615_054_ticket02_revisao_faturamento_numa_serie_so.sql` (só no DEV): o cartão do mês é o último mês da mesma série de 12 meses do gráfico, então os dois não têm como divergir; o fuso fica numa constante. Resultado idêntico ao anterior (pgTAP 80 verde antes e depois).
+- pgTAP 80 (32 asserções): o zero do mês vazio passou a ser provado comparando cada um dos 12 meses do gráfico com a soma independente das aprovadas daquele mês lida da tabela; entrou uma cobrança aprovada no primeiro instante do mês seguinte, que tem de ficar fora do faturamento; as recusas de Gerente, Barbeiro e Gerente com `tenant_id` nulo agora exigem a mensagem `ADMIN_ONLY` (o anônimo cai antes, por falta de `EXECUTE`); os preços vêm da tabela `plans`, e não de números fixos; helpers com nomes claros e a diferença dos contadores com rótulo (`liberadas=1 bloqueadas=0 mrr=89.90`).

@@ -29,4 +29,6 @@ Outro chamador dos campos antigos: o pgTAP `65_periodo_de_teste_e_estado_de_aces
 
 No localhost contra o DEV, logado como Proprietário: MRR R$ 0,00, 4 liberadas, 0 bloqueadas, igual à consulta independente (1 cancelada com período pago e 3 em teste; nenhuma `active`).
 
-Fora da regra do ticket, anotado para decisão: a cancelada que assinou de novo está liberada e vai ser cobrada, mas fica fora do MRR (o status ainda é `canceled`); a `past_due` com 5 dias ou mais conta em bloqueadas e segue no MRR.
+Texto da tela: o subtítulo do MRR passou de "Valor total das assinaturas ativas" para "Valor da próxima cobrança das assinaturas pagantes", porque "ativas" deixou de ser verdade (entram as `past_due` e o plano agendado).
+
+Fora da regra do ticket, anotado para decisão: a cancelada que assinou de novo está liberada e vai ser cobrada, mas fica fora do MRR (o status ainda é `canceled`); a `past_due` com 5 dias ou mais conta em bloqueadas e segue no MRR (coberto agora por um caso no pgTAP 80, para o comportamento não mudar sem aviso).
