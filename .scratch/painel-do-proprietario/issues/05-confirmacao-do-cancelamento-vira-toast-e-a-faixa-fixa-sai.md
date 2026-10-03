@@ -8,12 +8,31 @@ Hoje, depois de cancelar, a faixa "Assinatura cancelada. Acesso até 03/11." fic
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** done (um critério depende de login como o Gerente da MP Teste)
 
-- [ ] Teste do front (Vitest): com o Estado de Acesso `warning` e o motivo `canceled`, o layout do Gerente não mostra a faixa de aviso
-- [ ] Teste do front: com os motivos teste terminando, pagamento recusado e acesso liberado à mão, a faixa continua aparecendo como hoje
-- [ ] Teste do front: ao cancelar, aparece um toast com "Assinatura cancelada. Acesso até DD/MM." (só "Assinatura cancelada." quando não há data) que some sozinho pela duração padrão dos toasts, com timers falsos; o teste que hoje exige a faixa depois do cancelamento passa a exigir o toast
-- [ ] A mensagem passageira "Assinatura cancelada." no lugar do botão, enquanto a assinatura é relida, continua, e o botão não volta a ser clicável nessa janela
-- [ ] Nenhuma migration: o Estado de Acesso da cancelada segue o mesmo no banco
+- [x] Teste do front (Vitest): com o Estado de Acesso `warning` e o motivo `canceled`, o layout do Gerente não mostra a faixa de aviso
+- [x] Teste do front: com os motivos teste terminando, pagamento recusado e acesso liberado à mão, a faixa continua aparecendo como hoje
+- [x] Teste do front: ao cancelar, aparece um toast com "Assinatura cancelada. Acesso até DD/MM." (só "Assinatura cancelada." quando não há data) que some sozinho pela duração padrão dos toasts, com timers falsos; o teste que hoje exige a faixa depois do cancelamento passa a exigir o toast
+- [x] A mensagem passageira "Assinatura cancelada." no lugar do botão, enquanto a assinatura é relida, continua, e o botão não volta a ser clicável nessa janela
+- [x] Nenhuma migration: o Estado de Acesso da cancelada segue o mesmo no banco
 - [ ] No site de DEV, a barbearia MP Teste (cancelada, com acesso até 03/11) deixa de mostrar a faixa em todas as telas do painel; Ajustes > Assinatura segue mostrando "Cancelada até DD/MM" e "Assinar de novo". O toast só se vê cancelando uma assinatura viva (novo checkout, que o usuário digita), então a prova dele fica nos testes
-- [ ] `rtk proxy npx oxlint src supabase/functions`, Vitest completo (rodando sozinho) e `npm run build` passam
+- [x] `rtk proxy npx oxlint src supabase/functions`, Vitest completo (rodando sozinho) e `npm run build` passam
+
+## Resultado
+
+Branch `fix/faixa-da-cancelada-vira-toast`, sem migration. Commit `fbbfbaa`:
+- `GerenteLayout.tsx` deixa de mostrar a faixa quando o Estado de Acesso é `warning` com o motivo `canceled`; teste terminando, pagamento recusado e acesso liberado à mão seguem fixos (um teste por motivo).
+- `CancelarAssinatura.tsx` mostra o toast "Assinatura cancelada. Acesso até DD/MM." (só "Assinatura cancelada." sem data) na hora do cancelamento, pela duração padrão de 4 s do `ToastProvider`, no fuso da barbearia. A mensagem passageira no lugar do botão continua.
+- O texto mora em `mensagemDoCancelamento` (`mensagensDeAcesso.ts`), que `mensagemDoAviso` reaproveita para o motivo `canceled`.
+- Testes com timers falsos (`shouldAdvanceTime`, margens de 1 s) e uma mutação do guard derrubou 2 testes do layout.
+
+Revisão (`/code-review`, Standards e Spec) aplicada em 2026-10-03:
+- A regra "quem tem faixa fixa" passou para o módulo de acesso: `temFaixaDeAviso(estado)` em `mensagensDeAcesso.ts`, com teste próprio; o layout só a chama.
+- `CONTEXT.md` (glossário canônico) acompanhou: o verbete do Estado de Acesso e o do Cancelamento da Assinatura dizem que a cancelada não tem faixa fixa e que o aviso é o toast.
+- Comentários que narravam a faixa antiga (`SecaoAssinatura.tsx`, `CancelarAssinatura.tsx`, `mensagensDeAcesso.ts`) passaram a descrever o estado atual.
+- Testes: o espião de `setTimeout` é solto no `afterEach`; a tabela do `it.each` do layout ganhou a data como coluna, sem ternário.
+- Mantido de propósito: o ramo `canceled` de `mensagemDoAviso` (documentado como defensivo, para a função seguir completa para qualquer motivo) e a duração de 4000 ms fixada no teste (o padrão do `ToastProvider`; se mudar, o teste muda junto). A data do toast vem de `fimDoAcessoAoCancelar(assinatura)` no cliente, e não do `dataRelevante` do banco, porque o toast sai antes de o layout reler o estado; as duas coincidem (fim do período pago ou do teste).
+
+Gates: lint, `tsc -b`, `npm run build` e Vitest completo (168 arquivos, 2387 testes) verdes. Uma rodada anterior teve uma oscilação em `Financeiro.test.tsx` sob carga (passa isolado, 11/11, e a rodada seguinte ficou toda verde).
+
+Pendente: no site de DEV, a barbearia MP Teste (cancelada, acesso até 03/11) deixa de mostrar a faixa; precisa de login como o Gerente dela. O toast só se vê cancelando uma assinatura viva (novo checkout), então a prova dele fica nos testes.
