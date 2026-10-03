@@ -337,22 +337,24 @@ select set_config('request.jwt.claim.sub',
 select is(
   (public.get_admin_dashboard_metrics() ->> 'mrr')::numeric,
   (select coalesce(sum(p.price), 0) from public.tenant_subscriptions s
-   join public.plans p on p.id = s.plan_id where s.status = 'active'),
-  'metricas: o MRR soma o preco mensal das assinaturas ativas'
+   join public.plans p on p.id = coalesce(s.scheduled_plan_id, s.plan_id) where s.status in ('active', 'past_due')),
+  'metricas: o MRR soma o preco da proxima cobranca das assinaturas ativas e com pagamento recusado'
 );
 select is(
-  (public.get_admin_dashboard_metrics() ->> 'active_tenants')::integer,
-  (select count(distinct tenant_id)::integer from public.tenant_subscriptions where status = 'active'),
-  'metricas: barbearias ativas contam as assinaturas ativas'
+  (public.get_admin_dashboard_metrics() ->> 'released_tenants')::integer,
+  (select count(*)::integer from public.tenant_subscriptions s
+   cross join lateral private.subscription_access_state(s, now()) a where a.access in ('allowed', 'warning')),
+  'metricas: barbearias liberadas contam o Estado de Acesso allowed ou warning'
 );
 select is(
-  (public.get_admin_dashboard_metrics() ->> 'suspended_tenants')::integer,
-  (select count(distinct tenant_id)::integer from public.tenant_subscriptions where status = 'blocked'),
-  'metricas: barbearias suspensas contam as bloqueadas'
+  (public.get_admin_dashboard_metrics() ->> 'blocked_tenants')::integer,
+  (select count(*)::integer from public.tenant_subscriptions s
+   cross join lateral private.subscription_access_state(s, now()) a where a.access = 'blocked'),
+  'metricas: barbearias bloqueadas contam o Estado de Acesso blocked'
 );
 select cmp_ok(
-  (public.get_admin_dashboard_metrics() ->> 'suspended_tenants')::integer, '>=', 12,
-  'metricas: as 12 bloqueadas dos casos aparecem como suspensas'
+  (public.get_admin_dashboard_metrics() ->> 'blocked_tenants')::integer, '>=', 12,
+  'metricas: as 12 bloqueadas dos casos aparecem como bloqueadas'
 );
 
 -- Cadastro: a barbearia nova nasce em teste de 15 dias -----------------------

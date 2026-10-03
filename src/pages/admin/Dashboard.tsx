@@ -19,8 +19,8 @@ interface RevenueTrendItem {
 
 interface DashboardMetrics {
   mrr: number;
-  active_tenants: number;
-  suspended_tenants: number;
+  released_tenants: number;
+  blocked_tenants: number;
   revenue_this_month: number;
   revenue_trend: RevenueTrendItem[];
 }
@@ -357,7 +357,7 @@ export const Dashboard: React.FC = () => {
             <StatCard
               title="Receita Recorrente (MRR)"
               value={formatCurrency(metrics.mrr)}
-              subtitle="Valor total das assinaturas ativas"
+              subtitle="Valor da próxima cobrança das assinaturas pagantes"
               icon={<span className="text-brand-primary"><InfoIcon size={20} /></span>}
             />
 
@@ -369,16 +369,16 @@ export const Dashboard: React.FC = () => {
             />
 
             <StatCard
-              title="Barbearias Ativas"
-              value={metrics.active_tenants}
-              subtitle="Contratos ativos com acesso liberado"
+              title="Barbearias Liberadas"
+              value={metrics.released_tenants}
+              subtitle="Com acesso liberado agora"
               icon={<span className="text-success"><SuccessIcon size={20} /></span>}
             />
 
             <StatCard
-              title="Inadimplentes / Suspensas"
-              value={metrics.suspended_tenants}
-              subtitle="Barbearias com acesso suspenso"
+              title="Barbearias Bloqueadas"
+              value={metrics.blocked_tenants}
+              subtitle="Com acesso bloqueado agora"
               icon={<span className="text-error"><WarningIcon size={20} /></span>}
             />
           </section>
