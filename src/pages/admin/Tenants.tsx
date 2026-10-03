@@ -19,7 +19,7 @@ interface TenantManagementItem {
   plan_price: number | null;
   subscription_status: SituacaoDaAssinatura | null;
   subscription_end_date: string | null;
-  whatsapp_status: 'connected' | 'disconnected' | 'pairing' | null;
+  whatsapp_status: 'connected' | 'connecting' | 'disconnected' | 'hibernated' | null;
   /** Até quando uma barbearia bloqueada foi liberada à mão (o fim de um dia no fuso dela), ou nulo. */
   subscription_unblocked_until: string | null;
   tenant_timezone: string | null;
@@ -28,13 +28,22 @@ interface TenantManagementItem {
 const STATUS_BADGE_CLASSES: Record<string, string> = {
   connected: 'bg-success-bg text-success',
   active: 'bg-success-bg text-success',
-  pairing: 'bg-warning-bg text-warning',
+  connecting: 'bg-warning-bg text-warning',
+  hibernated: 'bg-text-secondary/[0.08] text-text-secondary',
   blocked: 'bg-warning-bg text-warning',
   trialing: 'bg-info-bg text-info',
   courtesy: 'bg-info-bg text-info',
   disconnected: 'bg-error-bg text-error',
   past_due: 'bg-error-bg text-error',
   canceled: 'bg-error-bg text-error',
+};
+
+// Os quatro estados da Instância WhatsApp (CONTEXT.md), com os rótulos da tela do Gerente (Whatsapp.tsx).
+const ROTULO_DO_WHATSAPP: Record<NonNullable<TenantManagementItem['whatsapp_status']>, string> = {
+  connected: 'Conectado',
+  connecting: 'Pareando',
+  hibernated: 'Pausado',
+  disconnected: 'Desconectado',
 };
 
 export const Tenants: React.FC = () => {
@@ -274,7 +283,7 @@ export const Tenants: React.FC = () => {
                         {/* WhatsApp Status */}
                         <td className="px-6 py-5">
                           <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold capitalize ${STATUS_BADGE_CLASSES[t.whatsapp_status || 'disconnected']}`}>
-                            {t.whatsapp_status === 'connected' ? 'Conectado' : t.whatsapp_status === 'pairing' ? 'Pareando' : 'Desconectado'}
+                            {ROTULO_DO_WHATSAPP[t.whatsapp_status || 'disconnected']}
                           </span>
                         </td>
 

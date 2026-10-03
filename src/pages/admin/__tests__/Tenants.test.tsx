@@ -103,6 +103,55 @@ describe('Admin > Tenants', () => {
     expect(within(linhaDa('Barbearia Delta')).getByText('Sem assinatura')).toBeInTheDocument();
   });
 
+  // Os quatro estados da Instância WhatsApp (CONTEXT.md): 'connecting' é o pareamento em andamento e 'hibernated', a sessão pausada.
+  // A tela do Gerente os chama de "Pareando" e "Pausado"; o Proprietário lê os mesmos rótulos, e não "Desconectado" para tudo o que
+  // não é conectado.
+  it('mostra o estado do WhatsApp de cada barbearia com o mesmo rótulo da tela do Gerente', async () => {
+    mockListar.mockResolvedValue({
+      data: [
+        linha({ tenant_id: 'w-1', tenant_name: 'Barbearia Conectada', whatsapp_status: 'connected' }),
+        linha({ tenant_id: 'w-2', tenant_name: 'Barbearia Pareando', whatsapp_status: 'connecting' }),
+        linha({ tenant_id: 'w-3', tenant_name: 'Barbearia Pausada', whatsapp_status: 'hibernated' }),
+        linha({ tenant_id: 'w-4', tenant_name: 'Barbearia Desconectada', whatsapp_status: 'disconnected' }),
+        linha({ tenant_id: 'w-5', tenant_name: 'Barbearia Sem Instancia', whatsapp_status: null }),
+      ],
+      error: null,
+    });
+    render(<Tenants />);
+    await screen.findByText('Barbearia Conectada');
+
+    expect(within(linhaDa('Barbearia Conectada')).getByText('Conectado')).toBeInTheDocument();
+    expect(within(linhaDa('Barbearia Pareando')).getByText('Pareando')).toBeInTheDocument();
+    expect(within(linhaDa('Barbearia Pausada')).getByText('Pausado')).toBeInTheDocument();
+    expect(within(linhaDa('Barbearia Desconectada')).getByText('Desconectado')).toBeInTheDocument();
+    expect(within(linhaDa('Barbearia Sem Instancia')).getByText('Desconectado')).toBeInTheDocument();
+  });
+
+  it('o selo de cada estado do WhatsApp tem uma classe de cor, e pareando e pausado não herdam a do desconectado', async () => {
+    mockListar.mockResolvedValue({
+      data: [
+        linha({ tenant_id: 'w-2', tenant_name: 'Barbearia Pareando', whatsapp_status: 'connecting' }),
+        linha({ tenant_id: 'w-3', tenant_name: 'Barbearia Pausada', whatsapp_status: 'hibernated' }),
+        linha({ tenant_id: 'w-4', tenant_name: 'Barbearia Desconectada', whatsapp_status: 'disconnected' }),
+      ],
+      error: null,
+    });
+    render(<Tenants />);
+    await screen.findByText('Barbearia Pareando');
+
+    const classes = {
+      pareando: within(linhaDa('Barbearia Pareando')).getByText('Pareando').className,
+      pausado: within(linhaDa('Barbearia Pausada')).getByText('Pausado').className,
+      desconectado: within(linhaDa('Barbearia Desconectada')).getByText('Desconectado').className,
+    };
+
+    // Um estado que o mapa de classes não conhece vira "undefined" no texto da classe.
+    for (const classe of Object.values(classes)) expect(classe).not.toContain('undefined');
+    expect(classes.pareando).not.toBe(classes.desconectado);
+    expect(classes.pausado).not.toBe(classes.desconectado);
+    expect(classes.pausado).not.toBe(classes.pareando);
+  });
+
   it('a barbearia desbloqueada à mão mostra até que dia está liberada, no fuso dela', async () => {
     render(<Tenants />);
     await screen.findByText('Barbearia Beta');
