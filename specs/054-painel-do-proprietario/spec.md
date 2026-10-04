@@ -72,7 +72,7 @@ O painel do Proprietário passa a ler a cobrança real e o Estado de Acesso, o c
   - `revenue_this_month` (numeric): soma de `billing_charges.amount` com `status = 'approved'` e `charged_at` no mês corrente de `America/Sao_Paulo`.
   - `released_tenants` (integer): barbearias com `private.tenant_access_state(tenant, now())` em `allowed` ou `warning`. Substitui `active_tenants`.
   - `blocked_tenants` (integer): barbearias com Estado de Acesso `blocked`. Substitui `suspended_tenants`.
-  - `revenue_trend` (array de 12 itens, do mais antigo ao mês corrente): `month` (`YYYY-MM`), `month_label` e `revenue`, com zero no mês sem cobrança aprovada; mesma regra e mesmo fuso de `revenue_this_month`.
+  - `revenue_trend` (array de 12 itens, do mais antigo ao mês corrente): `month` (`YYYY-MM`) e `revenue` (o `month_label` em inglês do `to_char` saiu depois da entrega: a tela monta o nome do mês em português a partir de `month`), com zero no mês sem cobrança aprovada; mesma regra e mesmo fuso de `revenue_this_month`.
 - **Barbearia sem linha de assinatura** não entra em nenhum contador (o Estado de Acesso dela não é calculável); a migration do ticket 03 deu assinatura a todas, então isso só cobre dado quebrado.
 - **O mês é de Brasília**, fixo, porque o painel é da plataforma e as barbearias têm fusos diferentes; as datas por barbearia continuam sendo do fuso dela nas Ferramentas do Proprietário.
 - **A tela** (`Admin > Dashboard`) lê os campos novos, troca os rótulos para "Barbearias liberadas" ("com acesso liberado agora") e "Barbearias bloqueadas" ("com acesso bloqueado agora"), e mantém MRR, faturamento e gráfico como estão visualmente.
@@ -105,4 +105,4 @@ O painel do Proprietário passa a ler a cobrança real e o Estado de Acesso, o c
 - Achado no teste das specs 052 e 053 no site de DEV, logado como Proprietário, em 2026-10-03 (achados 4 e 5 da rodada). A faixa fixa da cancelada (problema 4) foi apontada pelo usuário, com captura de tela, logo depois do teste de cancelar a assinatura como Gerente da barbearia MP Teste, no mesmo dia.
 - O nome da spec e da pasta ficou "painel do Proprietário" porque nasceu dos problemas 1 a 3; o problema 4 é do painel do Gerente.
 - O texto e as consultas que provaram o problema são só de leitura no DEV; a PROD não foi consultada.
-- Rótulos do gráfico (`TMMonth YY`) ficam como estão.
+- Rótulos do gráfico: ficaram como estavam na entrega (`TMMonth YY`, em inglês pelo idioma do banco); depois o `month_label` saiu da RPC e a tela passou a mostrar o mês em português (`Set/26` no eixo, `Setembro de 2026` no tooltip).
