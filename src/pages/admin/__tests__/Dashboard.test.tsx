@@ -44,8 +44,8 @@ describe('Admin Dashboard', () => {
     blocked_tenants: 2,
     revenue_this_month: 5200.0,
     revenue_trend: [
-      { month: '2026-07', month_label: 'July 26', revenue: 0 },
-      { month: '2026-08', month_label: 'August 26', revenue: 5200 },
+      { month: '2026-07', revenue: 0 },
+      { month: '2026-08', revenue: 5200 },
     ],
   };
 
@@ -94,7 +94,7 @@ describe('Admin Dashboard', () => {
     expect(screen.getByText(/R\$\s0,00/)).toBeInTheDocument();
   });
 
-  it('mostra os meses do gráfico em português, no eixo e no tooltip, e não o rótulo em inglês do banco', async () => {
+  it('mostra os meses do gráfico em português, no eixo e no tooltip', async () => {
     const { container } = render(<Dashboard />);
 
     await screen.findByText('Evolução da receita');
@@ -106,7 +106,6 @@ describe('Admin Dashboard', () => {
     fireEvent.mouseEnter(points[1]);
     expect(screen.getByText('Agosto de 2026')).toBeInTheDocument();
     expect(points[1].closest('svg')?.textContent).toMatch(/R\$\s5\.200,00/);
-    expect(screen.queryByText(/August|July/)).not.toBeInTheDocument();
   });
 
   it.each([
@@ -124,7 +123,7 @@ describe('Admin Dashboard', () => {
     ['2026-12', 'Dezembro de 2026'],
   ])('o tooltip do mês %s diz %s', async (mes, esperado) => {
     mockRpc.mockResolvedValue({
-      data: { ...fakeMetrics, revenue_trend: [{ month: mes, month_label: 'ignored', revenue: 10 }, { month: '2027-01', month_label: 'ignored', revenue: 20 }] },
+      data: { ...fakeMetrics, revenue_trend: [{ month: mes, revenue: 10 }, { month: '2027-01', revenue: 20 }] },
       error: null,
     });
     const { container } = render(<Dashboard />);

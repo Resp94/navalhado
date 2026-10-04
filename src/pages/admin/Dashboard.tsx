@@ -11,8 +11,7 @@ import {
 import { StatCard, Button, Skeleton } from '../../components/ui';
 import { CabecalhoDoAdmin } from '../../components/admin/CabecalhoDoAdmin';
 
-// Tipagem dos dados retornados da RPC. A RPC também manda `month_label`, que o banco monta em inglês ("September 26"): a tela monta o
-// rótulo em português a partir de `month` ("2026-09").
+// Tipagem dos dados retornados da RPC. O nome do mês em português sai de `month` ("2026-09"), montado aqui na tela.
 interface RevenueTrendItem {
   month: string;
   revenue: number;

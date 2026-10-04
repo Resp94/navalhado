@@ -1,6 +1,6 @@
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(32);
+select plan(33);
 
 -- Spec 054, tickets 02 a 04: metricas do painel do Proprietario (public.get_admin_dashboard_metrics).
 -- Ticket 02: "Faturamento do mes" e "Evolucao da receita" somam as cobrancas aprovadas (public.billing_charges, status `approved`,
@@ -234,6 +234,11 @@ select is(
   (select array_agg(k::text order by k) from jsonb_object_keys(current_setting('t80.depois')::jsonb) k),
   array['blocked_tenants', 'mrr', 'released_tenants', 'revenue_this_month', 'revenue_trend'],
   'o contrato novo: liberadas e bloqueadas no lugar de ativas e suspensas'
+);
+select is(
+  (select array_agg(k::text order by k) from jsonb_object_keys(current_setting('t80.depois')::jsonb -> 'revenue_trend' -> 0) k),
+  array['month', 'revenue'],
+  'cada mes do grafico traz so month e revenue: o rotulo em ingles do banco (month_label) saiu da RPC'
 );
 
 -- D. A tabela de faturas sem escritor saiu do banco (ticket 04), com as policies e os indices dela ---------------------------------
