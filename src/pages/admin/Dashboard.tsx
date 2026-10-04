@@ -11,12 +11,14 @@ import {
 import { StatCard, Button, Skeleton } from '../../components/ui';
 import { CabecalhoDoAdmin } from '../../components/admin/CabecalhoDoAdmin';
 
-// Tipagem dos dados retornados da RPC
+// Tipagem dos dados retornados da RPC. A RPC também manda `month_label`, que o banco monta em inglês ("September 26"): a tela monta o
+// rótulo em português a partir de `month` ("2026-09").
 interface RevenueTrendItem {
   month: string;
-  month_label: string;
   revenue: number;
 }
+
+const MESES = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
 
 interface DashboardMetrics {
   mrr: number;
@@ -88,12 +90,18 @@ export const Dashboard: React.FC = () => {
     }).format(val);
   };
 
-  // Formatar rótulos de meses (ex: "2026-07" -> "Jul/26")
+  // Formatar rótulos de meses (ex: "2026-07" -> "Jul/26", no eixo)
   const formatMonth = (monthKey: string) => {
     if (!monthKey) return '';
     const [year, month] = monthKey.split('-');
-    const months = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
-    return `${months[parseInt(month) - 1]}/${year.substring(2)}`;
+    return `${MESES[parseInt(month) - 1].slice(0, 3)}/${year.substring(2)}`;
+  };
+
+  // Nome do mês por extenso (ex: "2026-07" -> "Julho de 2026", no tooltip)
+  const formatMonthName = (monthKey: string) => {
+    if (!monthKey) return '';
+    const [year, month] = monthKey.split('-');
+    return `${MESES[parseInt(month) - 1]} de ${year}`;
   };
 
   // Renderizar o gráfico SVG interativo
@@ -255,7 +263,7 @@ export const Dashboard: React.FC = () => {
                   fontWeight="700" 
                   textAnchor="middle"
                 >
-                  {trend[hoveredPoint].month_label}
+                  {formatMonthName(trend[hoveredPoint].month)}
                 </text>
                 <text 
                   x="0" 
