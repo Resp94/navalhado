@@ -1,6 +1,6 @@
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(33);
+select plan(34);
 
 -- Spec 054, tickets 02 a 04: metricas do painel do Proprietario (public.get_admin_dashboard_metrics).
 -- Ticket 02: "Faturamento do mes" e "Evolucao da receita" somam as cobrancas aprovadas (public.billing_charges, status `approved`,
@@ -8,7 +8,8 @@ select plan(33);
 -- estornada e contestada ficam fora. O grafico tem 12 meses, do mais antigo ao atual, com zero no mes sem cobranca, e usa a mesma regra
 -- do cartao. So o Proprietario le (Gerente, Barbeiro, anonimo e Gerente com tenant_id nulo recebem 42501).
 -- Ticket 03: o MRR soma o preco do plano que a proxima cobranca vai cobrar das assinaturas `active` e `past_due` (o plano agendado,
--- quando ha descida agendada); "liberadas" e "bloqueadas" contam pelo Estado de Acesso de agora (private.subscription_access_state), e
+-- quando ha descida agendada) e da `canceled` que assinou de novo e teve a assinatura nova autorizada (Estado de Acesso `allowed` com o
+-- motivo `active`: a cobranca recomeca no fim do periodo pago); "liberadas" e "bloqueadas" contam pelo Estado de Acesso de agora (private.subscription_access_state), e
 -- barbearia sem assinatura nao entra em nenhum contador.
 -- Ticket 04: a tabela public.invoices, que nenhum codigo gravava, saiu do banco.
 -- As barbearias de teste que ja existem no DEV mexem nos numeros, entao cada prova compara o valor de antes com o de depois de
@@ -123,6 +124,14 @@ select pg_temp.tirar_foto();
 select pg_temp.nova_barbearia(14, 'RecusaAntiga');
 insert into public.tenant_subscriptions(tenant_id, plan_id, status, current_period_start, current_period_end, first_failed_at) values ('80000000-0000-0000-0000-000000000014', 'b3fa7384-d113-4a1b-a5ed-1efeb7e51c22', 'past_due', now() - interval '36 days', now() - interval '6 days', now() - interval '6 days');
 select is(pg_temp.diferenca_desde_a_foto(), 'liberadas=0 bloqueadas=1 mrr=' || pg_temp.preco('b3fa7384-d113-4a1b-a5ed-1efeb7e51c22'), 'recusa de 6 dias (acesso ja bloqueado, ainda past_due): conta como bloqueada e segue no MRR');
+
+-- Cancelada que assinou de novo e teve a assinatura nova autorizada (sem canceled_at, com o Mercado Pago e o cartao): o Estado de Acesso
+-- e `allowed/active` e a cobranca recomeca no fim do periodo pago, entao entra no MRR pelo plano atual. A cancelada do caso 6 (sem
+-- assinatura nova) continua fora.
+select pg_temp.tirar_foto();
+select pg_temp.nova_barbearia(15, 'CanceladaQueAssinouDeNovo');
+insert into public.tenant_subscriptions(tenant_id, plan_id, status, current_period_start, current_period_end, canceled_at, mp_subscription_id, card_brand) values ('80000000-0000-0000-0000-000000000015', 'b3fa7384-d113-4a1b-a5ed-1efeb7e51c22', 'canceled', now() - interval '20 days', now() + interval '10 days', null, 'mp-80-assinou-de-novo', 'visa');
+select is(pg_temp.diferenca_desde_a_foto(), 'liberadas=1 bloqueadas=0 mrr=' || pg_temp.preco('b3fa7384-d113-4a1b-a5ed-1efeb7e51c22'), 'cancelada que assinou de novo (assinatura nova autorizada): liberada e no MRR, porque a cobranca recomeca no fim do periodo pago');
 
 -- B. So o Proprietario le as metricas ---------------------------------------------------------------------------------------------
 update public.users set tenant_id = '80000000-0000-0000-0000-000000000001', role = 'gerente', is_active = true where id = '80000000-0000-0000-0000-0000000000a2';

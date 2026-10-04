@@ -337,8 +337,10 @@ select set_config('request.jwt.claim.sub',
 select is(
   (public.get_admin_dashboard_metrics() ->> 'mrr')::numeric,
   (select coalesce(sum(p.price), 0) from public.tenant_subscriptions s
-   join public.plans p on p.id = coalesce(s.scheduled_plan_id, s.plan_id) where s.status in ('active', 'past_due')),
-  'metricas: o MRR soma o preco da proxima cobranca das assinaturas ativas e com pagamento recusado'
+   join public.plans p on p.id = coalesce(s.scheduled_plan_id, s.plan_id)
+   cross join lateral private.subscription_access_state(s, now()) a
+   where s.status in ('active', 'past_due') or (s.status = 'canceled' and a.reason = 'active')),
+  'metricas: o MRR soma o preco da proxima cobranca das assinaturas ativas, com pagamento recusado e canceladas que assinaram de novo'
 );
 select is(
   (public.get_admin_dashboard_metrics() ->> 'released_tenants')::integer,
