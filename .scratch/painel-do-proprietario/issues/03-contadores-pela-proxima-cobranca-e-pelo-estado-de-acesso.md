@@ -31,4 +31,6 @@ No localhost contra o DEV, logado como Proprietário: MRR R$ 0,00, 4 liberadas, 
 
 Texto da tela: o subtítulo do MRR passou de "Valor total das assinaturas ativas" para "Valor da próxima cobrança das assinaturas pagantes", porque "ativas" deixou de ser verdade (entram as `past_due` e o plano agendado).
 
-Fora da regra do ticket, anotado para decisão: a cancelada que assinou de novo está liberada e vai ser cobrada, mas fica fora do MRR (o status ainda é `canceled`); a `past_due` com 5 dias ou mais conta em bloqueadas e segue no MRR (coberto agora por um caso no pgTAP 80, para o comportamento não mudar sem aviso).
+Decisões depois da entrega (2026-10-03):
+- A cancelada que assinou de novo e teve a assinatura nova autorizada ENTRA no MRR (decisão do usuário, opção "incluir"). Migration `20261004011352_054_ticket03_mrr_inclui_cancelada_que_assinou_de_novo.sql` (só no DEV): o MRR e os dois contadores saem da mesma leitura de `tenant_subscriptions`, e a `canceled` com Estado de Acesso `allowed/active` soma o preço do plano atual (a assinatura nova nasce pelo valor dele e o agendamento antigo é limpo). Reaproveita o Estado de Acesso em vez de copiar o critério (`canceled_at` nulo, assinatura do Mercado Pago e bandeira do cartão). pgTAP 80 ganhou o caso 15 (34 asserções) e o 65 acompanhou a fórmula (76/76).
+- A `past_due` com 5 dias ou mais conta em bloqueadas e segue no MRR até a rotina diária gravar o bloqueio: mantido como está (cada contador mede o seu: acesso e cobrança), coberto por um caso no pgTAP 80 para o comportamento não mudar sem aviso.

@@ -22,7 +22,7 @@ O Proprietário abre Admin > Dashboard para saber quanto a plataforma fatura e q
 O painel do Proprietário passa a ler a cobrança real e o Estado de Acesso, o cabeçalho do Admin vira um só, que cabe numa tela de celular, e o aviso de assinatura cancelada do Gerente vira uma mensagem que some, em vez de uma faixa fixa.
 
 - **Faturamento do mês** é a soma das cobranças aprovadas (`billing_charges.status = 'approved'`, mensalidade e diferença de plano) com `charged_at` no mês corrente. **Evolução da receita** usa a mesma regra, mês a mês, nos últimos 12 meses. O mês é o do calendário de Brasília (`America/Sao_Paulo`), o fuso da plataforma, e não o de cada barbearia. A cobrança estornada ou contestada deixa de ser `approved` e sai da soma sozinha.
-- **Receita recorrente (MRR)** é o valor mensal que a próxima cobrança vai cobrar de cada assinatura que segue sendo cobrada: as `active` e as `past_due`, pelo preço do plano agendado quando há descida agendada e pelo preço do plano atual quando não há. Cancelada, cortesia, teste e bloqueada não entram (a cortesia não é cobrada, e a cancelada não renova).
+- **Receita recorrente (MRR)** é o valor mensal que a próxima cobrança vai cobrar de cada assinatura que segue sendo cobrada: as `active` e as `past_due`, pelo preço do plano agendado quando há descida agendada e pelo preço do plano atual quando não há, mais a cancelada que assinou de novo e teve a assinatura nova autorizada (a cobrança dela recomeça no fim do período pago). Cancelada sem assinatura nova, cortesia, teste e bloqueada não entram (a cortesia não é cobrada, e a cancelada sem assinatura nova não renova).
 - **Barbearias liberadas** (no lugar de "Barbearias ativas") conta as barbearias cujo Estado de Acesso de agora é `allowed` ou `warning`, seja qual for o motivo (teste, pagante, cortesia, cancelada com período pago, Desbloqueio Manual).
 - **Barbearias bloqueadas** (no lugar de "Inadimplentes / Suspensas") conta as barbearias cujo Estado de Acesso de agora é `blocked`, seja qual for o motivo.
 - O contrato da RPC muda de nome onde muda de sentido (ver Implementation Decisions), e a tela acompanha.
@@ -42,7 +42,7 @@ O painel do Proprietário passa a ler a cobrança real e o Estado de Acesso, o c
 8. Como Proprietário, quero que o MRR some o valor da próxima cobrança das assinaturas pagantes, para estimar a receita do mês que vem.
 9. Como Proprietário, quero que a assinatura com pagamento recusado (`past_due`) ainda conte no MRR enquanto o Mercado Pago tenta cobrar, para o MRR não despencar no primeiro dia de recusa.
 10. Como Proprietário, quero que a descida de plano agendada já conte no MRR pelo plano menor, porque é esse valor que o Mercado Pago vai cobrar.
-11. Como Proprietário, quero que cortesia, teste, cancelada e bloqueada fiquem fora do MRR, porque nenhuma delas vai gerar a próxima cobrança.
+11. Como Proprietário, quero que cortesia, teste, cancelada sem assinatura nova e bloqueada fiquem fora do MRR, porque nenhuma delas vai gerar a próxima cobrança; e que a cancelada que assinou de novo, com a assinatura nova autorizada, entre, porque a cobrança dela recomeça no fim do período pago.
 12. Como Proprietário, quero saber quantas barbearias estão liberadas agora, contando teste, pagante, cortesia, cancelada com período pago e desbloqueio manual, para saber quantas estão usando a plataforma.
 13. Como Proprietário, quero saber quantas barbearias estão bloqueadas agora, pelo mesmo Estado de Acesso que fecha o painel do Gerente, para o número bater com o que o cliente vê.
 14. Como Proprietário, quero que a barbearia que eu desbloqueei à mão conte como liberada, e não como bloqueada, enquanto o desbloqueio vale.
@@ -68,7 +68,7 @@ O painel do Proprietário passa a ler a cobrança real e o Estado de Acesso, o c
 
 - **A regra mora no banco, numa RPC só.** `public.get_admin_dashboard_metrics()` continua sendo a única fonte do painel (security definer, `search_path` vazio, `EXECUTE` só para `authenticated`) e é reescrita por migration. A guarda passa a ser `private.assert_saas_admin()`, a mesma das Ferramentas do Proprietário (recusa com `ADMIN_ONLY`/42501), no lugar do `if not exists ... raise exception` com texto livre.
 - **Contrato novo da RPC** (jsonb), com os nomes acompanhando o sentido:
-  - `mrr` (numeric): soma, para cada assinatura `active` ou `past_due`, do preço do plano agendado (`scheduled_plan_id`) quando houver, senão do plano atual.
+  - `mrr` (numeric): soma, para cada assinatura `active` ou `past_due`, do preço do plano agendado (`scheduled_plan_id`) quando houver, senão do plano atual. Entra também a `canceled` que assinou de novo e teve a assinatura nova autorizada, reconhecida pelo Estado de Acesso (`allowed` com o motivo `active`), e não por uma cópia do critério.
   - `revenue_this_month` (numeric): soma de `billing_charges.amount` com `status = 'approved'` e `charged_at` no mês corrente de `America/Sao_Paulo`.
   - `released_tenants` (integer): barbearias com `private.tenant_access_state(tenant, now())` em `allowed` ou `warning`. Substitui `active_tenants`.
   - `blocked_tenants` (integer): barbearias com Estado de Acesso `blocked`. Substitui `suspended_tenants`.
