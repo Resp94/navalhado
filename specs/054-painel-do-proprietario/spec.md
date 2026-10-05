@@ -1,6 +1,6 @@
 # Especificação Técnica: Painel do Proprietário com a cobrança real, cabeçalho que cabe no celular e aviso de cancelamento que some
 
-Triagem: `ready-for-agent`
+Triagem: `done`
 
 ## Problem Statement
 
@@ -106,3 +106,20 @@ O painel do Proprietário passa a ler a cobrança real e o Estado de Acesso, o c
 - O nome da spec e da pasta ficou "painel do Proprietário" porque nasceu dos problemas 1 a 3; o problema 4 é do painel do Gerente.
 - O texto e as consultas que provaram o problema são só de leitura no DEV; a PROD não foi consultada.
 - Rótulos do gráfico: ficaram como estavam na entrega (`TMMonth YY`, em inglês pelo idioma do banco); depois o `month_label` saiu da RPC e a tela passou a mostrar o mês em português (`Set/26` no eixo, `Setembro de 2026` no tooltip).
+
+## Fechamento
+
+Fechada em 2026-10-05. Os cinco tickets estão `done` (`.scratch/painel-do-proprietario/issues/`), mergeados na `dev` por fast-forward e enviados por push, com as migrations só no DEV. Os quatro problemas estão resolvidos e conferidos no site de DEV (`dev.navalhado.com.br`):
+
+1. Faturamento do mês e Evolução da receita vêm das cobranças aprovadas, no mês de Brasília.
+2. MRR pela próxima cobrança e Barbearias liberadas e bloqueadas pelo Estado de Acesso.
+3. Cabeçalho único do Admin, que cabe em 375 px.
+4. A confirmação do cancelamento é um toast, e a faixa fixa da cancelada saiu do painel do Gerente.
+
+`public.invoices` saiu do banco (0 linhas no DEV e na PROD; a PROD foi só consultada).
+
+Mudanças depois da entrega, a pedido do usuário: os meses do gráfico em português (a tela monta o nome a partir de `month`) e o `month_label` fora da RPC; o MRR inclui a cancelada que assinou de novo e teve a assinatura nova autorizada (reconhecida pelo Estado de Acesso `allowed` com o motivo `active`). Decidido manter: a `past_due` com 5 dias ou mais conta em bloqueadas e segue no MRR até a rotina diária gravar o bloqueio.
+
+Versões das migrations (todas só no DEV): `20261003204038`, `20261003204455`, `20261003231247`, `20261003232615`, `20261004004203` e `20261004011352`. pgTAP `80_painel_do_proprietario` com 34 asserções e `65` com 76, ambos verdes; Vitest completo verde.
+
+Fica fora desta spec, como já estava em Out of Scope: promover esta spec e a 052 para a PROD (as migrations seguem em ordem de versão, a 02 e a 03 antes da 04). O toast do cancelamento só foi provado pelos testes, porque exige cancelar uma assinatura viva.

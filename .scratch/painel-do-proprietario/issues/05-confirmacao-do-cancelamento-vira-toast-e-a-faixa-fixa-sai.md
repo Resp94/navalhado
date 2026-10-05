@@ -8,14 +8,14 @@ Hoje, depois de cancelar, a faixa "Assinatura cancelada. Acesso até 03/11." fic
 
 **Blocked by:** None (can start immediately)
 
-**Status:** done (um critério depende de login como o Gerente da MP Teste)
+**Status:** done
 
 - [x] Teste do front (Vitest): com o Estado de Acesso `warning` e o motivo `canceled`, o layout do Gerente não mostra a faixa de aviso
 - [x] Teste do front: com os motivos teste terminando, pagamento recusado e acesso liberado à mão, a faixa continua aparecendo como hoje
 - [x] Teste do front: ao cancelar, aparece um toast com "Assinatura cancelada. Acesso até DD/MM." (só "Assinatura cancelada." quando não há data) que some sozinho pela duração padrão dos toasts, com timers falsos; o teste que hoje exige a faixa depois do cancelamento passa a exigir o toast
 - [x] A mensagem passageira "Assinatura cancelada." no lugar do botão, enquanto a assinatura é relida, continua, e o botão não volta a ser clicável nessa janela
 - [x] Nenhuma migration: o Estado de Acesso da cancelada segue o mesmo no banco
-- [ ] No site de DEV, a barbearia MP Teste (cancelada, com acesso até 03/11) deixa de mostrar a faixa em todas as telas do painel; Ajustes > Assinatura segue mostrando "Cancelada até DD/MM" e "Assinar de novo". O toast só se vê cancelando uma assinatura viva (novo checkout, que o usuário digita), então a prova dele fica nos testes
+- [x] No site de DEV, a barbearia MP Teste (cancelada, com acesso até 03/11) deixa de mostrar a faixa em todas as telas do painel; Ajustes > Assinatura segue mostrando "Cancelada até DD/MM" e "Assinar de novo". O toast só se vê cancelando uma assinatura viva (novo checkout, que o usuário digita), então a prova dele fica nos testes
 - [x] `rtk proxy npx oxlint src supabase/functions`, Vitest completo (rodando sozinho) e `npm run build` passam
 
 ## Resultado
@@ -36,3 +36,5 @@ Revisão (`/code-review`, Standards e Spec) aplicada em 2026-10-03:
 Gates: lint, `tsc -b`, `npm run build` e Vitest completo (168 arquivos, 2387 testes) verdes. Uma rodada anterior teve uma oscilação em `Financeiro.test.tsx` sob carga (passa isolado, 11/11, e a rodada seguinte ficou toda verde).
 
 Pendente: no site de DEV, a barbearia MP Teste (cancelada, acesso até 03/11) deixa de mostrar a faixa; precisa de login como o Gerente dela. O toast só se vê cancelando uma assinatura viva (novo checkout), então a prova dele fica nos testes.
+
+Critério do site de DEV cumprido em 2026-10-03, logado como o Gerente MP Teste (cancelada, acesso até 03/11): sem faixa de aviso e sem tela de bloqueio em `/agenda`, `/comandas` e `/configuracoes`; Ajustes > Assinatura mostra "Cancelada até 03/11" e o botão "Assinar de novo". O Estado de Acesso que o porteiro entrega a esse Gerente (RPC `get_my_access_state`, chamada como ele, três leituras em 21 s) foi `warning` com o motivo `canceled` e a data 03/11, ou seja, o mesmo estado em que a versão antiga mostrava a faixa: o que a tirou foi o filtro novo. O toast só aparece ao cancelar uma assinatura viva (novo checkout), então a prova dele fica nos testes, como o ticket previa.

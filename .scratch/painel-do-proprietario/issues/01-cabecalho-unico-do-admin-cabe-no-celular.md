@@ -24,3 +24,5 @@ Commit f38e284, branch `feat/painel-do-proprietario`. Componente `src/components
 Prova no navegador, nas rotas reais, logado como Proprietário e com o CSS real, em 375 px: `scrollWidth` 375 = `clientWidth` 375 em `/admin/dashboard` e em `/admin/tenants`; o Sair termina em 363 px (largura 52). Em `/admin/tenants` a tabela rola dentro do cartão (335 px visíveis, 973 de conteúdo): rolada ao fim, o "Detalhes" fica em 253–328 px, dentro da tela, e a página não ganha rolagem lateral. Também medido em 320 px (Sair em 308) e em desktop.
 
 Decisões que a spec não trazia: abaixo de 440 px o texto "Navalhado" do logo some (só o símbolo fica), porque com ele o Sair passa 31 px da tela em 375 px; as abas e o cabeçalho ficam mais estreitos abaixo de `md` e abaixo de 361 px.
+
+Conferido também no site de DEV (`dev.navalhado.com.br`, depois do deploy do push), logado como Proprietário, em 2026-10-03: em 375 px `/admin/dashboard` e `/admin/tenants` sem rolagem lateral (`scrollWidth` 375 = `clientWidth` 375), Sair terminando em 363 px, "Detalhes" alcançável rolando a tabela dentro do cartão e a aba atual marcada.
