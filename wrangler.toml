@@ -1,10 +1,39 @@
 #:schema node_modules/wrangler/config-schema.json
+# Worker do app: a SPA do Vite (dist/) servida como assets + worker/index.ts só para /api/* (spec 056: Contatos do Site).
 name = "navalhado"
+main = "worker/index.ts"
 compatibility_date = "2026-07-20"
 
 [assets]
 directory = "./dist"
+binding = "ASSETS"
 not_found_handling = "single-page-application"
+run_worker_first = ["/api/*"]
 
+# Contatos do Site: a tabela `contatos` do D1 do site (as migrations ficam no repositório do site; o app só lê e marca o status).
+[[d1_databases]]
+binding = "CONTATOS"
+database_name = "navalhado-site"
+database_id = "74542ae9-aba9-426b-b9b6-512f56918229"
+
+# A guarda das rotas chama public.assert_proprietario no Supabase de cada ambiente. URL e chave publicável são públicas.
+[vars]
+SUPABASE_URL = "https://boakqstrdfqmsrwnjore.supabase.co"
+SUPABASE_ANON_KEY = "sb_publishable_MOvW929gN3DRcYdgCe5-FQ_LACg0B9C"
+
+# ---------------------------------------------------------------------------------------------
+# Ambiente de desenvolvimento: Worker, D1 e Supabase separados da produção.
+# D1 e [vars] não são herdados do topo, por isso são declarados de novo aqui.
 [env.dev]
 name = "navalhado-dev"
+
+# `remote = true`: o `npm run dev:worker` local lê e marca no D1 de dev de verdade (só há mensagens de teste nele).
+[[env.dev.d1_databases]]
+binding = "CONTATOS"
+database_name = "navalhado-site-dev"
+database_id = "b9201da5-d6b1-4ac8-af9f-0057d90d3700"
+remote = true
+
+[env.dev.vars]
+SUPABASE_URL = "https://selvxobcjbkligxighlp.supabase.co"
+SUPABASE_ANON_KEY = "sb_publishable_ItH_bk30VocJoe5kZ5QYdA_CNpWqjey"

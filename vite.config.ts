@@ -6,6 +6,10 @@ import path from 'path'
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react(), tailwindcss()],
+  // /api é do Worker do app (worker/index.ts). Em desenvolvimento, rode `npm run dev:worker` ao lado do `npm run dev`.
+  server: {
+    proxy: { '/api': 'http://localhost:8787' },
+  },
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
