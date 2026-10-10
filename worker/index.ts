@@ -1,6 +1,6 @@
 // Worker do app: os assets (a SPA do Vite, em dist/) seguem servidos pelo Cloudflare. Só /api/* passa por aqui
 // (`run_worker_first` no wrangler.toml): as rotas de Contatos do Site, que leem e marcam no D1 do site (spec 056).
-import { ehStatusDoContato, listarContatos, marcarContato, type D1Database, type FiltroDaLista } from './contatos';
+import { contarNovos, ehStatusDoContato, listarContatos, marcarContato, type D1Database, type FiltroDaLista } from './contatos';
 import { exigirProprietario, type GuardaEnv } from './guarda';
 
 export interface Env extends GuardaEnv {
@@ -15,6 +15,7 @@ const json = (body: unknown, status = 200, headers: Record<string, string> = {})
   });
 
 const ROTA_CONTATOS = '/api/admin/contatos';
+const ROTA_NOVOS = '/api/admin/contatos/novos';
 const ROTA_DE_UM_CONTATO = /^\/api\/admin\/contatos\/([1-9]\d*)$/;
 
 const ID = /^[1-9]\d*$/;
@@ -32,6 +33,11 @@ async function atenderApi(request: Request, env: Env, url: URL): Promise<Respons
   if (url.pathname === ROTA_CONTATOS) {
     if (request.method !== 'GET') return json({ erro: 'Método não permitido.' }, 405, { allow: 'GET' });
     return comGuarda(request, env, () => listar(env, url));
+  }
+
+  if (url.pathname === ROTA_NOVOS) {
+    if (request.method !== 'GET') return json({ erro: 'Método não permitido.' }, 405, { allow: 'GET' });
+    return comGuarda(request, env, async () => json({ novos: await contarNovos(env.CONTATOS) }));
   }
 
   const umContato = ROTA_DE_UM_CONTATO.exec(url.pathname);

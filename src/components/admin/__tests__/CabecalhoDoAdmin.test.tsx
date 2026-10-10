@@ -1,10 +1,15 @@
-import { render, screen, within } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { mockNavigate, estado } = vi.hoisted(() => ({
+const { mockNavigate, estado, mockContarNovos } = vi.hoisted(() => ({
   mockNavigate: vi.fn(),
   estado: { pathname: '/admin/dashboard' },
+  mockContarNovos: vi.fn(),
+}));
+
+vi.mock('../../../modules/contatos-do-site/repositorio', () => ({
+  contatosDoSiteRepository: { contarNovos: () => mockContarNovos(), aoMudar: () => () => {} },
 }));
 
 vi.mock('react-router-dom', () => ({
@@ -18,6 +23,35 @@ describe('CabecalhoDoAdmin', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     estado.pathname = '/admin/dashboard';
+    mockContarNovos.mockReset();
+    mockContarNovos.mockResolvedValue(0);
+  });
+
+  it('mostra quantos contatos novos há na aba Contatos', async () => {
+    mockContarNovos.mockResolvedValue(3);
+    render(<CabecalhoDoAdmin nomeDoAdmin="João Admin" aoSair={vi.fn()} />);
+
+    const aba = await screen.findByRole('button', { name: 'Contatos, 3 contatos novos' });
+    expect(within(aba).getByText('3')).toBeInTheDocument();
+  });
+
+  it('um contato novo vai no singular', async () => {
+    mockContarNovos.mockResolvedValue(1);
+    render(<CabecalhoDoAdmin nomeDoAdmin="João Admin" aoSair={vi.fn()} />);
+    expect(await screen.findByRole('button', { name: 'Contatos, 1 contato novo' })).toBeInTheDocument();
+  });
+
+  it('acima de 99, mostra 99+', async () => {
+    mockContarNovos.mockResolvedValue(150);
+    render(<CabecalhoDoAdmin nomeDoAdmin="João Admin" aoSair={vi.fn()} />);
+    const aba = await screen.findByRole('button', { name: 'Contatos, 150 contatos novos' });
+    expect(within(aba).getByText('99+')).toBeInTheDocument();
+  });
+
+  it('sem contato novo, o contador some', async () => {
+    render(<CabecalhoDoAdmin nomeDoAdmin="João Admin" aoSair={vi.fn()} />);
+    await waitFor(() => expect(mockContarNovos).toHaveBeenCalled());
+    expect(screen.getByRole('button', { name: 'Contatos' })).toBeInTheDocument();
   });
 
   it('mostra o logo, as três abas, o nome com o papel e o Sair', () => {

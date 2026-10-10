@@ -53,6 +53,11 @@ export class WorkerContatosDoSiteAdapter implements IContatosDoSiteAdapter {
     return paraContato(corpo.contato);
   }
 
+  async contarNovos(): Promise<number> {
+    const corpo = (await this.pedir(`${ROTA}/novos`)) as { novos: number };
+    return corpo.novos;
+  }
+
   private async pedir(caminho: string, init: RequestInit = {}): Promise<unknown> {
     const token = await this.obterToken();
     if (!token) throw new ContatosDoSiteError('nao-autenticado');

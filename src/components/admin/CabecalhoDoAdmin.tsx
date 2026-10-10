@@ -1,5 +1,7 @@
 import React from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { pluralizar } from '../../lib/plural';
+import { useContatosNovos } from '../../modules/contatos-do-site/useContatosNovos';
 import { Button } from '../ui';
 
 interface CabecalhoDoAdminProps {
@@ -8,17 +10,22 @@ interface CabecalhoDoAdminProps {
 }
 
 const ROTA_DO_DASHBOARD = '/admin/dashboard';
+const ROTA_DOS_CONTATOS = '/admin/contatos';
 
 const ABAS = [
   { rota: ROTA_DO_DASHBOARD, rotulo: 'Dashboard' },
   { rota: '/admin/tenants', rotulo: 'Barbearias' },
-  { rota: '/admin/contatos', rotulo: 'Contatos' },
+  { rota: ROTA_DOS_CONTATOS, rotulo: 'Contatos' },
 ];
 
-/** Barra do topo das telas do Proprietário (Dashboard, Barbearias e Contatos): logo, abas, quem está logado e Sair. */
+/**
+ * Barra do topo das telas do Proprietário (Dashboard, Barbearias e Contatos): logo, abas, quem está logado e Sair. A aba Contatos mostra
+ * quantos Contatos do Site estão como novos (some com zero); o número fica no canto da aba para não alargar o cabeçalho no celular.
+ */
 export const CabecalhoDoAdmin: React.FC<CabecalhoDoAdminProps> = ({ nomeDoAdmin, aoSair }) => {
   const navigate = useNavigate();
   const { pathname } = useLocation();
+  const contatosNovos = useContatosNovos() ?? 0;
 
   return (
     <header className="flex justify-between items-center gap-2 px-8 py-4 bg-[radial-gradient(ellipse_40%_60%_at_15%_50%,rgba(217,108,0,0.05)_0%,transparent_60%),radial-gradient(ellipse_40%_60%_at_85%_50%,rgba(217,108,0,0.03)_0%,transparent_55%),linear-gradient(145deg,rgba(255,255,255,0.78)_0%,rgba(255,241,230,0.5)_45%,rgba(255,255,255,0.72)_100%)] backdrop-blur-[28px] backdrop-saturate-[200%] border-b border-[rgba(255,255,255,0.25)] shadow-[inset_0_1px_0_rgba(255,255,255,0.6),inset_0_-1px_0_rgba(255,255,255,0.15),0_8px_40px_-8px_rgba(45,35,30,0.1),0_1px_4px_rgba(45,35,30,0.04)] sticky top-0 z-[100] transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] max-md:px-3 max-md:py-4">
@@ -40,19 +47,31 @@ export const CabecalhoDoAdmin: React.FC<CabecalhoDoAdminProps> = ({ nomeDoAdmin,
       >
         {ABAS.map(({ rota, rotulo }) => {
           const atual = pathname === rota;
+          const novos = rota === ROTA_DOS_CONTATOS ? contatosNovos : 0;
           return (
             <button
               key={rota}
               type="button"
               onClick={() => navigate(rota)}
               aria-current={atual ? 'page' : undefined}
-              className={`flex items-center gap-2 bg-transparent border border-transparent text-xs md:text-sm font-medium cursor-pointer px-2 md:px-4 py-[0.45rem] rounded-md no-underline transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] active:scale-[0.97] ${
+              className={`relative flex items-center gap-2 bg-transparent border border-transparent text-xs md:text-sm font-medium cursor-pointer px-2 md:px-4 py-[0.45rem] rounded-md no-underline transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] active:scale-[0.97] ${
                 atual
                   ? 'text-brand-primary bg-bg-secondary border-[rgba(234,222,214,0.8)] font-semibold shadow-[0_1px_2px_rgba(45,35,30,0.06),inset_0_1px_0_rgba(255,255,255,0.6)]'
                   : 'text-text-secondary hover:text-brand-primary hover:bg-[rgba(255,255,255,0.5)] hover:border-[rgba(234,222,214,0.6)]'
               }`}
             >
               {rotulo}
+              {novos > 0 && (
+                <>
+                  <span
+                    aria-hidden="true"
+                    className="absolute -top-2 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-brand-primary text-white text-[10px] font-bold leading-[18px] text-center"
+                  >
+                    {novos > 99 ? '99+' : novos}
+                  </span>
+                  <span className="sr-only">{`, ${novos} ${pluralizar(novos, 'contato novo', 'contatos novos')}`}</span>
+                </>
+              )}
             </button>
           );
         })}

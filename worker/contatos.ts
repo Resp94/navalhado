@@ -57,3 +57,9 @@ export async function listarContatos(
 export async function marcarContato(db: D1Database, id: number, status: StatusDoContato): Promise<ContatoDoSiteLinha | null> {
   return db.prepare(`UPDATE contatos SET status = ?1 WHERE id = ?2 RETURNING ${CAMPOS}`).bind(status, id).first<ContatoDoSiteLinha>();
 }
+
+/** Quantas mensagens estão como `novo` (usa o índice `contatos_status`). */
+export async function contarNovos(db: D1Database): Promise<number> {
+  const linha = await db.prepare(`SELECT COUNT(*) AS novos FROM contatos WHERE status = 'novo'`).first<{ novos: number }>();
+  return linha?.novos ?? 0;
+}

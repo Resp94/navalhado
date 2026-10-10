@@ -29,6 +29,8 @@ export interface IContatosDoSiteAdapter {
   listar(filtro: StatusDoContato | null, antesDe: number | null): Promise<PaginaDeContatos>;
   /** Muda o status e devolve o contato como ficou. */
   marcar(id: number, status: StatusDoContato): Promise<ContatoDoSite>;
+  /** Quantas mensagens estão como `novo`. */
+  contarNovos(): Promise<number>;
 }
 
 export const STATUS_DO_CONTATO: readonly StatusDoContato[] = ['novo', 'lido', 'respondido'];

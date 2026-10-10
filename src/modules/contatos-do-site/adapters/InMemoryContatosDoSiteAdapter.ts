@@ -40,4 +40,8 @@ export class InMemoryContatosDoSiteAdapter implements IContatosDoSiteAdapter {
     contato.status = status;
     return { ...contato };
   }
+
+  async contarNovos(): Promise<number> {
+    return this.contatos.filter((c) => c.status === 'novo').length;
+  }
 }

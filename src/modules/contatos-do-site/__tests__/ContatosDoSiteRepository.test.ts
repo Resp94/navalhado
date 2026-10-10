@@ -103,3 +103,14 @@ describe('ContatosDoSiteRepository: abrir e marcar', () => {
     expect(aviso).not.toHaveBeenCalled();
   });
 });
+
+describe('ContatosDoSiteRepository.contarNovos', () => {
+  it('conta só as mensagens novas', async () => {
+    const adapter = new InMemoryContatosDoSiteAdapter([
+      contatoDeTeste({ id: 1, status: 'novo' }),
+      contatoDeTeste({ id: 2, status: 'lido' }),
+      contatoDeTeste({ id: 3, status: 'novo' }),
+    ]);
+    expect(await new ContatosDoSiteRepository(adapter).contarNovos()).toBe(2);
+  });
+});

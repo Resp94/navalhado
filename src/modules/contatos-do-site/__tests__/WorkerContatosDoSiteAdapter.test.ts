@@ -104,3 +104,11 @@ describe('WorkerContatosDoSiteAdapter.marcar', () => {
     await expect(adapter.marcar(7, 'lido')).rejects.toMatchObject({ motivo: 'nao-encontrado' });
   });
 });
+
+describe('WorkerContatosDoSiteAdapter.contarNovos', () => {
+  it('lê a contagem de novos do Worker', async () => {
+    const { adapter, fetchFalso } = montar(json({ novos: 3 }));
+    expect(await adapter.contarNovos()).toBe(3);
+    expect(fetchFalso.mock.calls[0][0]).toBe('/api/admin/contatos/novos');
+  });
+});

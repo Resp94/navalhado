@@ -27,6 +27,11 @@ export class ContatosDoSiteRepository {
     return contato;
   }
 
+  /** Quantas mensagens estão como `novo` (o contador da aba Contatos). */
+  contarNovos(): Promise<number> {
+    return this.adapter.contarNovos();
+  }
+
   /** Avisa depois de cada mudança de status gravada (o contador de novos se atualiza na hora). Devolve como cancelar o aviso. */
   aoMudar(avisar: () => void): () => void {
     this.assinantes.add(avisar);

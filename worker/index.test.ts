@@ -255,6 +255,37 @@ describe('PATCH /api/admin/contatos/:id', () => {
   });
 });
 
+describe('GET /api/admin/contatos/novos', () => {
+  it('conta só as mensagens novas', async () => {
+    const { env, banco } = montar();
+    banco.inserir();
+    banco.inserir();
+    banco.inserir({ status: 'lido' });
+    banco.inserir({ status: 'respondido' });
+
+    const res = await pedir(env, '/api/admin/contatos/novos', comToken());
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ novos: 2 });
+  });
+
+  it('sem mensagens, conta zero', async () => {
+    const { env } = montar();
+    expect(await (await pedir(env, '/api/admin/contatos/novos', comToken())).json()).toEqual({ novos: 0 });
+  });
+
+  it('tem a mesma guarda das outras rotas', async () => {
+    const { env } = montar({ status: 403, corpo: { code: '42501', message: 'ADMIN_ONLY' } });
+    expect((await pedir(env, '/api/admin/contatos/novos', comToken())).status).toBe(403);
+    expect((await pedir(env, '/api/admin/contatos/novos')).status).toBe(401);
+  });
+
+  it('só aceita GET', async () => {
+    const { env } = montar();
+    expect((await pedir(env, '/api/admin/contatos/novos', comToken({ method: 'POST' }))).status).toBe(405);
+  });
+});
+
 describe('roteamento do Worker', () => {
   it('rota /api desconhecida responde 404 em JSON', async () => {
     const { env } = montar();
