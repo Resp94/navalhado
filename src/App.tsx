@@ -6,6 +6,7 @@ import { ResetPassword } from './pages/ResetPassword';
 import { AuthGuard } from './components/AuthGuard';
 import { Dashboard as AdminDashboard } from './pages/admin/Dashboard';
 import { Tenants as AdminTenants } from './pages/admin/Tenants';
+import { Contatos as AdminContatos } from './pages/admin/Contatos';
 import { GerenteLayout } from './components/GerenteLayout';
 import { BarbeiroLayout } from './components/BarbeiroLayout';
 import { MinhaAgenda } from './pages/barbeiro/MinhaAgenda';
@@ -134,6 +135,14 @@ function App() {
             element={
               <AuthGuard allowedRole="proprietario">
                 <AdminTenants />
+              </AuthGuard>
+            }
+          />
+          <Route
+            path="/admin/contatos"
+            element={
+              <AuthGuard allowedRole="proprietario">
+                <AdminContatos />
               </AuthGuard>
             }
           />

@@ -12,9 +12,10 @@ const ROTA_DO_DASHBOARD = '/admin/dashboard';
 const ABAS = [
   { rota: ROTA_DO_DASHBOARD, rotulo: 'Dashboard' },
   { rota: '/admin/tenants', rotulo: 'Barbearias' },
+  { rota: '/admin/contatos', rotulo: 'Contatos' },
 ];
 
-/** Barra do topo das telas do Proprietário (Admin > Dashboard e Admin > Barbearias): logo, abas, quem está logado e Sair. */
+/** Barra do topo das telas do Proprietário (Dashboard, Barbearias e Contatos): logo, abas, quem está logado e Sair. */
 export const CabecalhoDoAdmin: React.FC<CabecalhoDoAdminProps> = ({ nomeDoAdmin, aoSair }) => {
   const navigate = useNavigate();
   const { pathname } = useLocation();
@@ -45,7 +46,7 @@ export const CabecalhoDoAdmin: React.FC<CabecalhoDoAdminProps> = ({ nomeDoAdmin,
               type="button"
               onClick={() => navigate(rota)}
               aria-current={atual ? 'page' : undefined}
-              className={`flex items-center gap-2 bg-transparent border border-transparent text-sm font-medium cursor-pointer px-2 min-[361px]:px-3 md:px-4 py-[0.45rem] rounded-md no-underline transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] active:scale-[0.97] ${
+              className={`flex items-center gap-2 bg-transparent border border-transparent text-xs md:text-sm font-medium cursor-pointer px-2 md:px-4 py-[0.45rem] rounded-md no-underline transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] active:scale-[0.97] ${
                 atual
                   ? 'text-brand-primary bg-bg-secondary border-[rgba(234,222,214,0.8)] font-semibold shadow-[0_1px_2px_rgba(45,35,30,0.06),inset_0_1px_0_rgba(255,255,255,0.6)]'
                   : 'text-text-secondary hover:text-brand-primary hover:bg-[rgba(255,255,255,0.5)] hover:border-[rgba(234,222,214,0.6)]'

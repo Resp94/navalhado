@@ -20,13 +20,14 @@ describe('CabecalhoDoAdmin', () => {
     estado.pathname = '/admin/dashboard';
   });
 
-  it('mostra o logo, as duas abas, o nome com o papel e o Sair', () => {
+  it('mostra o logo, as três abas, o nome com o papel e o Sair', () => {
     render(<CabecalhoDoAdmin nomeDoAdmin="João Admin" aoSair={vi.fn()} />);
 
     expect(screen.getByAltText('Navalhado')).toBeInTheDocument();
     const abas = within(screen.getByRole('navigation', { name: 'Navegação do Admin' }));
     expect(abas.getByRole('button', { name: 'Dashboard' })).toBeInTheDocument();
     expect(abas.getByRole('button', { name: 'Barbearias' })).toBeInTheDocument();
+    expect(abas.getByRole('button', { name: 'Contatos' })).toBeInTheDocument();
     expect(screen.getByText('João Admin')).toBeInTheDocument();
     expect(screen.getByText('Proprietário')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Sair' })).toBeInTheDocument();
@@ -45,6 +46,23 @@ describe('CabecalhoDoAdmin', () => {
 
     expect(screen.getByRole('button', { name: 'Barbearias' })).toHaveAttribute('aria-current', 'page');
     expect(screen.getByRole('button', { name: 'Dashboard' })).not.toHaveAttribute('aria-current');
+  });
+
+  it('marca a aba da página atual: Contatos em /admin/contatos', () => {
+    estado.pathname = '/admin/contatos';
+    render(<CabecalhoDoAdmin nomeDoAdmin="João Admin" aoSair={vi.fn()} />);
+
+    expect(screen.getByRole('button', { name: 'Contatos' })).toHaveAttribute('aria-current', 'page');
+    expect(screen.getByRole('button', { name: 'Dashboard' })).not.toHaveAttribute('aria-current');
+  });
+
+  it('a aba Contatos leva aos contatos do site', async () => {
+    const user = userEvent.setup();
+    render(<CabecalhoDoAdmin nomeDoAdmin="João Admin" aoSair={vi.fn()} />);
+
+    await user.click(screen.getByRole('button', { name: 'Contatos' }));
+
+    expect(mockNavigate).toHaveBeenCalledWith('/admin/contatos');
   });
 
   it('clicar na outra aba navega para ela', async () => {
