@@ -84,3 +84,23 @@ describe('WorkerContatosDoSiteAdapter.listar', () => {
     await expect(adapter.listar(null, null)).rejects.toMatchObject({ motivo: 'falha' });
   });
 });
+
+describe('WorkerContatosDoSiteAdapter.marcar', () => {
+  it('manda PATCH com o status e devolve o contato atualizado', async () => {
+    const { adapter, fetchFalso } = montar(json({ contato: { ...LINHA, status: 'respondido' } }));
+
+    const contato = await adapter.marcar(7, 'respondido');
+
+    const [url, init] = fetchFalso.mock.calls[0];
+    expect(url).toBe('/api/admin/contatos/7');
+    expect(init?.method).toBe('PATCH');
+    expect(JSON.parse(String(init?.body))).toEqual({ status: 'respondido' });
+    expect(new Headers(init?.headers).get('authorization')).toBe('Bearer jwt-do-proprietario');
+    expect(contato).toMatchObject({ id: 7, status: 'respondido', recebidoEm: new Date('2026-10-09T15:30:00Z') });
+  });
+
+  it('contato que não existe mais vira o erro nao-encontrado', async () => {
+    const { adapter } = montar(json({ erro: 'x' }, 404));
+    await expect(adapter.marcar(7, 'lido')).rejects.toMatchObject({ motivo: 'nao-encontrado' });
+  });
+});

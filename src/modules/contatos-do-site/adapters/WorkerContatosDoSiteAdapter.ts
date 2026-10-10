@@ -46,6 +46,13 @@ export class WorkerContatosDoSiteAdapter implements IContatosDoSiteAdapter {
     return { contatos: corpo.contatos.map(paraContato), haMais: corpo.haMais };
   }
 
+  async marcar(id: number, status: StatusDoContato): Promise<ContatoDoSite> {
+    const corpo = (await this.pedir(`${ROTA}/${id}`, { method: 'PATCH', body: JSON.stringify({ status }) })) as {
+      contato: ContatoDoWorker;
+    };
+    return paraContato(corpo.contato);
+  }
+
   private async pedir(caminho: string, init: RequestInit = {}): Promise<unknown> {
     const token = await this.obterToken();
     if (!token) throw new ContatosDoSiteError('nao-autenticado');
@@ -62,6 +69,7 @@ export class WorkerContatosDoSiteAdapter implements IContatosDoSiteAdapter {
 
     if (res.status === 401) throw new ContatosDoSiteError('nao-autenticado');
     if (res.status === 403) throw new ContatosDoSiteError('sem-permissao');
+    if (res.status === 404) throw new ContatosDoSiteError('nao-encontrado');
     if (!res.ok) throw new ContatosDoSiteError('falha');
     return res.json();
   }

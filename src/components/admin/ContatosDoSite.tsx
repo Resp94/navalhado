@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { ROTULO_DO_STATUS, quandoChegou } from '../../modules/contatos-do-site/apresentacao';
-import type { StatusDoContato } from '../../modules/contatos-do-site/types';
+import { ContatosDoSiteError, type ContatoDoSite, type StatusDoContato } from '../../modules/contatos-do-site/types';
 import { useContatosDoSite } from '../../modules/contatos-do-site/useContatosDoSite';
+import { useToast } from '../Toast';
 import { Button } from '../ui';
 
 const FILTROS: { rotulo: string; status: StatusDoContato | null; vazio: string }[] = [
@@ -19,7 +20,8 @@ const CLASSE_DO_STATUS: Record<StatusDoContato, string> = {
 
 /**
  * As mensagens do formulário de contato do site (spec 056), da mais nova para a mais antiga, filtradas pelo andamento (Novos por
- * padrão). Cada linha abre com o e-mail e a mensagem inteira. A resposta é feita fora do Navalhado.
+ * padrão). Abrir uma mensagem nova a marca como lida; a aberta tem "Marcar como respondido" e "Marcar como não lida". A mensagem
+ * que mudou de status continua na tela enquanto está aberta e sai do filtro quando é fechada. A resposta é feita fora do Navalhado.
  */
 export const ContatosDoSite: React.FC = () => {
   const lista = useContatosDoSite();
@@ -53,8 +55,41 @@ export const ContatosDoSite: React.FC = () => {
 
 type Props = ReturnType<typeof useContatosDoSite>;
 
-const Lista: React.FC<Props> = ({ filtro, contatos, haMais, status, recarregar, carregarMais, carregandoMais, erroAoCarregarMais }) => {
+const Lista: React.FC<Props> = ({
+  filtro,
+  contatos,
+  haMais,
+  status,
+  recarregar,
+  carregarMais,
+  carregandoMais,
+  erroAoCarregarMais,
+  abrir,
+  marcar,
+  retirarSeSaiuDoFiltro,
+}) => {
   const [aberto, setAberto] = useState<number | null>(null);
+  const { addToast } = useToast();
+
+  const avisarFalha = (erro: unknown) => {
+    const especifico = erro instanceof ContatosDoSiteError && erro.motivo !== 'falha';
+    addToast(especifico ? erro.message : 'Não foi possível marcar o contato. Tente de novo.', 'error');
+  };
+
+  // A mensagem aberta fica na tela mesmo que o status novo a tire do filtro; ao ser fechada (ou ao abrir outra), ela sai.
+  const alternar = (contato: ContatoDoSite) => {
+    if (aberto !== null) retirarSeSaiuDoFiltro(aberto);
+    if (aberto === contato.id) {
+      setAberto(null);
+      return;
+    }
+    setAberto(contato.id);
+    abrir(contato).catch(avisarFalha);
+  };
+
+  const mudar = (contato: ContatoDoSite, novo: StatusDoContato) => {
+    marcar(contato, novo).catch(avisarFalha);
+  };
 
   if (status === 'loading') {
     return (
@@ -78,9 +113,27 @@ const Lista: React.FC<Props> = ({ filtro, contatos, haMais, status, recarregar, 
     );
   }
 
+  const rodape = (haMais || erroAoCarregarMais) && (
+    <div className="flex flex-wrap items-center justify-center gap-3 border-t border-border p-4">
+      {erroAoCarregarMais && (
+        <p role="alert" className="m-0 text-sm text-error">
+          Não foi possível carregar mais contatos.
+        </p>
+      )}
+      <Button size="sm" variant="outline" onClick={carregarMais} disabled={carregandoMais}>
+        Carregar mais
+      </Button>
+    </div>
+  );
+
   if (contatos.length === 0) {
     const vazio = FILTROS.find((f) => f.status === filtro)?.vazio;
-    return <p className="m-0 p-5 text-sm text-text-secondary max-md:px-4">{vazio}</p>;
+    return (
+      <>
+        <p className="m-0 p-5 text-sm text-text-secondary max-md:px-4">{vazio}</p>
+        {rodape}
+      </>
+    );
   }
 
   return (
@@ -93,7 +146,7 @@ const Lista: React.FC<Props> = ({ filtro, contatos, haMais, status, recarregar, 
               <button
                 type="button"
                 aria-expanded={estaAberto}
-                onClick={() => setAberto(estaAberto ? null : contato.id)}
+                onClick={() => alternar(contato)}
                 className="w-full flex flex-wrap items-center gap-x-4 gap-y-1 px-5 py-4 text-left bg-transparent border-0 cursor-pointer hover:bg-[rgba(255,255,255,0.5)] max-md:px-4"
               >
                 <span className="flex flex-col min-w-0 flex-1">
@@ -114,24 +167,25 @@ const Lista: React.FC<Props> = ({ filtro, contatos, haMais, status, recarregar, 
                     <span className="break-all">{contato.email}</span>
                   </p>
                   <p className="m-0 text-sm text-text-primary whitespace-pre-wrap break-words">{contato.mensagem}</p>
+                  <div className="flex flex-wrap gap-2">
+                    {contato.status !== 'respondido' && (
+                      <Button size="sm" variant="outline" onClick={() => mudar(contato, 'respondido')}>
+                        Marcar como respondido
+                      </Button>
+                    )}
+                    {contato.status !== 'novo' && (
+                      <Button size="sm" variant="ghost" onClick={() => mudar(contato, 'novo')}>
+                        Marcar como não lida
+                      </Button>
+                    )}
+                  </div>
                 </div>
               )}
             </li>
           );
         })}
       </ul>
-      {(haMais || erroAoCarregarMais) && (
-        <div className="flex flex-wrap items-center justify-center gap-3 border-t border-border p-4">
-          {erroAoCarregarMais && (
-            <p role="alert" className="m-0 text-sm text-error">
-              Não foi possível carregar mais contatos.
-            </p>
-          )}
-          <Button size="sm" variant="outline" onClick={carregarMais} disabled={carregandoMais}>
-            Carregar mais
-          </Button>
-        </div>
-      )}
+      {rodape}
     </>
   );
 };

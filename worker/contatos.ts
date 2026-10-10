@@ -52,3 +52,8 @@ export async function listarContatos(
     .all<ContatoDoSiteLinha>();
   return { contatos: results.slice(0, TAMANHO_DA_PAGINA), haMais: results.length > TAMANHO_DA_PAGINA };
 }
+
+/** Muda o status e devolve o contato atualizado, ou nulo quando o id não existe. */
+export async function marcarContato(db: D1Database, id: number, status: StatusDoContato): Promise<ContatoDoSiteLinha | null> {
+  return db.prepare(`UPDATE contatos SET status = ?1 WHERE id = ?2 RETURNING ${CAMPOS}`).bind(status, id).first<ContatoDoSiteLinha>();
+}

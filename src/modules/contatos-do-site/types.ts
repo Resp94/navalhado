@@ -27,14 +27,23 @@ export interface PaginaDeContatos {
 export interface IContatosDoSiteAdapter {
   /** `filtro` nulo: todos os status. `antesDe`: o id da última mensagem já recebida (a página seguinte), ou nulo na primeira. */
   listar(filtro: StatusDoContato | null, antesDe: number | null): Promise<PaginaDeContatos>;
+  /** Muda o status e devolve o contato como ficou. */
+  marcar(id: number, status: StatusDoContato): Promise<ContatoDoSite>;
 }
 
-/** `nao-autenticado`: sem sessão ou sessão recusada. `sem-permissao`: quem pediu não é o Proprietário. `falha`: o resto. */
-export type MotivoDoErro = 'nao-autenticado' | 'sem-permissao' | 'falha';
+export const STATUS_DO_CONTATO: readonly StatusDoContato[] = ['novo', 'lido', 'respondido'];
+
+/**
+ * `nao-autenticado`: sem sessão ou sessão recusada. `sem-permissao`: quem pediu não é o Proprietário. `nao-encontrado`: o contato
+ * não existe mais. `status-invalido`: status fora da lista. `falha`: o resto.
+ */
+export type MotivoDoErro = 'nao-autenticado' | 'sem-permissao' | 'nao-encontrado' | 'status-invalido' | 'falha';
 
 const MENSAGENS: Record<MotivoDoErro, string> = {
   'nao-autenticado': 'Sua sessão expirou. Entre de novo.',
   'sem-permissao': 'Só o Proprietário vê os contatos do site.',
+  'nao-encontrado': 'Este contato não existe mais.',
+  'status-invalido': 'Status inválido.',
   falha: 'Não foi possível carregar os contatos.',
 };
 

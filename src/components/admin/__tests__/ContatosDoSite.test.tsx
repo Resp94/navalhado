@@ -4,17 +4,33 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { contatoDeTeste } from '../../../modules/contatos-do-site/adapters/InMemoryContatosDoSiteAdapter';
 import { ContatosDoSiteError } from '../../../modules/contatos-do-site/types';
 
-const { mockListar } = vi.hoisted(() => ({ mockListar: vi.fn() }));
+const { mockListar, mockAbrir, mockMarcar, mockToast } = vi.hoisted(() => ({
+  mockListar: vi.fn(),
+  mockAbrir: vi.fn(),
+  mockMarcar: vi.fn(),
+  mockToast: vi.fn(),
+}));
 
 vi.mock('../../../modules/contatos-do-site/repositorio', () => ({
-  contatosDoSiteRepository: { listar: (...args: unknown[]) => mockListar(...args) },
+  contatosDoSiteRepository: {
+    listar: (...args: unknown[]) => mockListar(...args),
+    abrir: (...args: unknown[]) => mockAbrir(...args),
+    marcar: (...args: unknown[]) => mockMarcar(...args),
+  },
 }));
+
+vi.mock('../../Toast', () => ({ useToast: () => ({ addToast: mockToast, removeToast: vi.fn() }) }));
 
 import { ContatosDoSite } from '../ContatosDoSite';
 
 describe('ContatosDoSite', () => {
   beforeEach(() => {
     mockListar.mockReset();
+    mockAbrir.mockReset();
+    mockMarcar.mockReset();
+    mockToast.mockReset();
+    mockAbrir.mockImplementation(async (c: { status: string }) => ({ ...c, status: c.status === 'novo' ? 'lido' : c.status }));
+    mockMarcar.mockImplementation(async (id: number, status: string) => ({ ...contatoDeTeste({ id }), status }));
   });
 
   it('lista cada mensagem com nome, barbearia, assunto, data e status', async () => {
@@ -138,5 +154,89 @@ describe('ContatosDoSite', () => {
 
     expect(await screen.findByText('Ana Souza')).toBeInTheDocument();
     expect(mockListar).toHaveBeenCalledTimes(2);
+  });
+
+  describe('abrir e marcar', () => {
+    const linhaDe = (nome: RegExp) => screen.getByRole('button', { name: nome }).closest('li') as HTMLElement;
+
+    it('abrir uma mensagem nova a marca como lida na hora, e ela continua aberta', async () => {
+      mockListar.mockResolvedValue({ contatos: [contatoDeTeste({ id: 5, status: 'novo' })], haMais: false });
+      render(<ContatosDoSite />);
+
+      await userEvent.click(await screen.findByRole('button', { name: /Ana Souza/ }));
+
+      expect(mockAbrir).toHaveBeenCalledWith(expect.objectContaining({ id: 5, status: 'novo' }));
+      expect(within(linhaDe(/Ana Souza/)).getByText('Lido')).toBeInTheDocument();
+      expect(screen.getByText('ana@exemplo.com')).toBeInTheDocument();
+    });
+
+    it('ao fechar, a mensagem lida sai do filtro Novos', async () => {
+      mockListar.mockResolvedValue({
+        contatos: [contatoDeTeste({ id: 5, nome: 'Bruno', status: 'novo' }), contatoDeTeste({ id: 4, nome: 'Carla', status: 'novo' })],
+        haMais: false,
+      });
+      render(<ContatosDoSite />);
+
+      await userEvent.click(await screen.findByRole('button', { name: /Bruno/ }));
+      await userEvent.click(screen.getByRole('button', { name: /Bruno/ }));
+
+      expect(screen.queryByText('Bruno Souza')).not.toBeInTheDocument();
+      expect(screen.getByText('Carla Souza')).toBeInTheDocument();
+    });
+
+    it('abrir uma mensagem lida não chama o repositório', async () => {
+      mockListar.mockResolvedValue({ contatos: [contatoDeTeste({ status: 'lido' })], haMais: false });
+      render(<ContatosDoSite />);
+      await userEvent.click(await screen.findByRole('button', { name: /Ana Souza/ }));
+      expect(mockAbrir).not.toHaveBeenCalled();
+    });
+
+    it('marca como respondido', async () => {
+      mockListar.mockResolvedValue({ contatos: [contatoDeTeste({ id: 5, status: 'lido' })], haMais: false });
+      render(<ContatosDoSite />);
+      await userEvent.click(await screen.findByRole('button', { name: /Ana Souza/ }));
+
+      await userEvent.click(screen.getByRole('button', { name: 'Marcar como respondido' }));
+
+      expect(mockMarcar).toHaveBeenCalledWith(5, 'respondido');
+      expect(within(linhaDe(/Ana Souza/)).getByText('Respondido')).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Marcar como respondido' })).not.toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Marcar como não lida' })).toBeInTheDocument();
+    });
+
+    it('marca como não lida', async () => {
+      mockListar.mockResolvedValue({ contatos: [contatoDeTeste({ id: 5, status: 'respondido' })], haMais: false });
+      render(<ContatosDoSite />);
+      await userEvent.click(await screen.findByRole('button', { name: /Ana Souza/ }));
+
+      await userEvent.click(screen.getByRole('button', { name: 'Marcar como não lida' }));
+
+      expect(mockMarcar).toHaveBeenCalledWith(5, 'novo');
+      expect(within(linhaDe(/Ana Souza/)).getByText('Novo')).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Marcar como não lida' })).not.toBeInTheDocument();
+    });
+
+    it('se marcar falha, volta ao status anterior e avisa', async () => {
+      mockListar.mockResolvedValue({ contatos: [contatoDeTeste({ id: 5, status: 'lido' })], haMais: false });
+      mockMarcar.mockRejectedValue(new ContatosDoSiteError('falha'));
+      render(<ContatosDoSite />);
+      await userEvent.click(await screen.findByRole('button', { name: /Ana Souza/ }));
+
+      await userEvent.click(screen.getByRole('button', { name: 'Marcar como respondido' }));
+
+      expect(await within(linhaDe(/Ana Souza/)).findByText('Lido')).toBeInTheDocument();
+      expect(mockToast).toHaveBeenCalledWith('Não foi possível marcar o contato. Tente de novo.', 'error');
+    });
+
+    it('se abrir falha, a mensagem volta a nova e avisa', async () => {
+      mockListar.mockResolvedValue({ contatos: [contatoDeTeste({ id: 5, status: 'novo' })], haMais: false });
+      mockAbrir.mockRejectedValue(new ContatosDoSiteError('nao-encontrado'));
+      render(<ContatosDoSite />);
+
+      await userEvent.click(await screen.findByRole('button', { name: /Ana Souza/ }));
+
+      expect(await within(linhaDe(/Ana Souza/)).findByText('Novo')).toBeInTheDocument();
+      expect(mockToast).toHaveBeenCalledWith('Este contato não existe mais.', 'error');
+    });
   });
 });

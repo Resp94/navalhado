@@ -1,4 +1,4 @@
-import type { ContatoDoSite, IContatosDoSiteAdapter, PaginaDeContatos, StatusDoContato } from '../types';
+import { ContatosDoSiteError, type ContatoDoSite, type IContatosDoSiteAdapter, type PaginaDeContatos, type StatusDoContato } from '../types';
 
 const TAMANHO_DA_PAGINA = 50;
 
@@ -32,5 +32,12 @@ export class InMemoryContatosDoSiteAdapter implements IContatosDoSiteAdapter {
       contatos: ordenados.slice(0, TAMANHO_DA_PAGINA).map((c) => ({ ...c })),
       haMais: ordenados.length > TAMANHO_DA_PAGINA,
     };
+  }
+
+  async marcar(id: number, status: StatusDoContato): Promise<ContatoDoSite> {
+    const contato = this.contatos.find((c) => c.id === id);
+    if (!contato) throw new ContatosDoSiteError('nao-encontrado');
+    contato.status = status;
+    return { ...contato };
   }
 }

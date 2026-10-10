@@ -193,6 +193,68 @@ describe('GET /api/admin/contatos', () => {
   });
 });
 
+describe('PATCH /api/admin/contatos/:id', () => {
+  const marcar = (env: Env, id: number | string, corpo: unknown) =>
+    pedir(env, `/api/admin/contatos/${id}`, comToken({ method: 'PATCH', body: JSON.stringify(corpo) }));
+
+  it('muda o status e devolve o contato atualizado, sem ip nem user_agent', async () => {
+    const { env, banco } = montar();
+    const id = banco.inserir({ nome: 'Ana' });
+
+    const res = await marcar(env, id, { status: 'respondido' });
+
+    expect(res.status).toBe(200);
+    const corpo = await res.json();
+    expect(corpo.contato).toMatchObject({ id, nome: 'Ana', status: 'respondido' });
+    expect(JSON.stringify(corpo)).not.toMatch(/203\.0\.113\.7|Mozilla|"ip"|user_agent/);
+    expect(banco.statusDe(id)).toBe('respondido');
+  });
+
+  it('volta uma mensagem para novo', async () => {
+    const { env, banco } = montar();
+    const id = banco.inserir({ status: 'lido' });
+    expect((await marcar(env, id, { status: 'novo' })).status).toBe(200);
+    expect(banco.statusDe(id)).toBe('novo');
+  });
+
+  it.each([{ status: 'arquivado' }, { status: null }, {}, 'texto'])('status inválido (%j) responde 422 e não muda nada', async (corpo) => {
+    const { env, banco } = montar();
+    const id = banco.inserir();
+    expect((await marcar(env, id, corpo)).status).toBe(422);
+    expect(banco.statusDe(id)).toBe('novo');
+  });
+
+  it('corpo que não é JSON responde 422', async () => {
+    const { env, banco } = montar();
+    const id = banco.inserir();
+    const res = await pedir(env, `/api/admin/contatos/${id}`, comToken({ method: 'PATCH', body: '{status' }));
+    expect(res.status).toBe(422);
+  });
+
+  it('id inexistente responde 404', async () => {
+    const { env } = montar();
+    expect((await marcar(env, 999, { status: 'lido' })).status).toBe(404);
+  });
+
+  it('id que não é número responde 404', async () => {
+    const { env } = montar();
+    expect((await marcar(env, 'abc', { status: 'lido' })).status).toBe(404);
+  });
+
+  it('sem autorização, não muda nada', async () => {
+    const { env, banco } = montar({ status: 403, corpo: { code: '42501', message: 'ADMIN_ONLY' } });
+    const id = banco.inserir();
+    expect((await marcar(env, id, { status: 'lido' })).status).toBe(403);
+    expect(banco.statusDe(id)).toBe('novo');
+  });
+
+  it('GET na rota de um contato responde 405', async () => {
+    const { env, banco } = montar();
+    const id = banco.inserir();
+    expect((await pedir(env, `/api/admin/contatos/${id}`, comToken())).status).toBe(405);
+  });
+});
+
 describe('roteamento do Worker', () => {
   it('rota /api desconhecida responde 404 em JSON', async () => {
     const { env } = montar();
