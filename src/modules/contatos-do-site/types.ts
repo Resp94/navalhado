@@ -25,7 +25,8 @@ export interface PaginaDeContatos {
 }
 
 export interface IContatosDoSiteAdapter {
-  listar(): Promise<PaginaDeContatos>;
+  /** `filtro` nulo: todos os status. `antesDe`: o id da última mensagem já recebida (a página seguinte), ou nulo na primeira. */
+  listar(filtro: StatusDoContato | null, antesDe: number | null): Promise<PaginaDeContatos>;
 }
 
 /** `nao-autenticado`: sem sessão ou sessão recusada. `sem-permissao`: quem pediu não é o Proprietário. `falha`: o resto. */

@@ -29,16 +29,22 @@ const json = (corpo: unknown, status = 200) => new Response(JSON.stringify(corpo
 describe('WorkerContatosDoSiteAdapter.listar', () => {
   it('chama o Worker na mesma origem com o token da sessão', async () => {
     const { adapter, fetchFalso } = montar(json({ contatos: [], haMais: false }));
-    await adapter.listar();
+    await adapter.listar(null, null);
     expect(fetchFalso).toHaveBeenCalledTimes(1);
     const [url, init] = fetchFalso.mock.calls[0];
     expect(url).toBe('/api/admin/contatos');
     expect(new Headers(init?.headers).get('authorization')).toBe('Bearer jwt-do-proprietario');
   });
 
+  it('manda o filtro e a página na query string', async () => {
+    const { adapter, fetchFalso } = montar(json({ contatos: [], haMais: false }));
+    await adapter.listar('lido', 120);
+    expect(fetchFalso.mock.calls[0][0]).toBe('/api/admin/contatos?status=lido&antesDe=120');
+  });
+
   it('converte a linha do D1 no Contato do Site, com a data em UTC', async () => {
     const { adapter } = montar(json({ contatos: [LINHA], haMais: true }));
-    const pagina = await adapter.listar();
+    const pagina = await adapter.listar(null, null);
     expect(pagina.haMais).toBe(true);
     expect(pagina.contatos).toEqual([
       {
@@ -57,7 +63,7 @@ describe('WorkerContatosDoSiteAdapter.listar', () => {
 
   it('sem sessão recusa sem chamar o Worker', async () => {
     const { adapter, fetchFalso } = montar(json({}), null);
-    await expect(adapter.listar()).rejects.toMatchObject({ motivo: 'nao-autenticado' });
+    await expect(adapter.listar(null, null)).rejects.toMatchObject({ motivo: 'nao-autenticado' });
     expect(fetchFalso).not.toHaveBeenCalled();
   });
 
@@ -68,13 +74,13 @@ describe('WorkerContatosDoSiteAdapter.listar', () => {
     [503, 'falha'],
   ])('resposta %i vira o erro de domínio %s', async (status, motivo) => {
     const { adapter } = montar(json({ erro: 'x' }, status));
-    const erro = await adapter.listar().catch((e: unknown) => e);
+    const erro = await adapter.listar(null, null).catch((e: unknown) => e);
     expect(erro).toBeInstanceOf(ContatosDoSiteError);
     expect(erro).toMatchObject({ motivo });
   });
 
   it('rede fora do ar vira falha', async () => {
     const { adapter } = montar(new TypeError('Failed to fetch'));
-    await expect(adapter.listar()).rejects.toMatchObject({ motivo: 'falha' });
+    await expect(adapter.listar(null, null)).rejects.toMatchObject({ motivo: 'falha' });
   });
 });

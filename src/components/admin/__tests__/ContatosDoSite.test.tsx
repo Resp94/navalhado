@@ -14,7 +14,7 @@ import { ContatosDoSite } from '../ContatosDoSite';
 
 describe('ContatosDoSite', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    mockListar.mockReset();
   });
 
   it('lista cada mensagem com nome, barbearia, assunto, data e status', async () => {
@@ -68,10 +68,64 @@ describe('ContatosDoSite', () => {
     expect(container.querySelector('b')).toBeNull();
   });
 
-  it('sem mensagens, diz que não há contatos', async () => {
+  it('abre no filtro Novos', async () => {
     mockListar.mockResolvedValue({ contatos: [], haMais: false });
     render(<ContatosDoSite />);
-    expect(await screen.findByText('Nenhum contato recebido pelo site.')).toBeInTheDocument();
+
+    expect(await screen.findByText('Nenhum contato novo.')).toBeInTheDocument();
+    expect(mockListar).toHaveBeenCalledWith('novo', null);
+    expect(screen.getByRole('button', { name: 'Novos' })).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  it.each([
+    ['Lidos', 'lido', 'Nenhum contato lido.'],
+    ['Respondidos', 'respondido', 'Nenhum contato respondido.'],
+    ['Todos', null, 'Nenhum contato recebido pelo site.'],
+  ])('o filtro %s busca de novo e tem o próprio vazio', async (rotulo, status, vazio) => {
+    mockListar.mockResolvedValue({ contatos: [], haMais: false });
+    render(<ContatosDoSite />);
+    await screen.findByText('Nenhum contato novo.');
+
+    await userEvent.click(screen.getByRole('button', { name: rotulo }));
+
+    expect(await screen.findByText(vazio)).toBeInTheDocument();
+    expect(mockListar).toHaveBeenLastCalledWith(status, null);
+    expect(screen.getByRole('button', { name: rotulo })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: 'Novos' })).toHaveAttribute('aria-pressed', 'false');
+  });
+
+  it('"Carregar mais" traz as mais antigas depois da última da lista', async () => {
+    mockListar.mockResolvedValueOnce({ contatos: [contatoDeTeste({ id: 9, nome: 'Nove' }), contatoDeTeste({ id: 8, nome: 'Oito' })], haMais: true });
+    mockListar.mockResolvedValueOnce({ contatos: [contatoDeTeste({ id: 3, nome: 'Três' })], haMais: false });
+    render(<ContatosDoSite />);
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Carregar mais' }));
+
+    expect(mockListar).toHaveBeenLastCalledWith('novo', 8);
+    expect(await screen.findByText('Três Souza')).toBeInTheDocument();
+    expect(screen.getAllByRole('listitem')).toHaveLength(3);
+    expect(screen.queryByRole('button', { name: 'Carregar mais' })).not.toBeInTheDocument();
+  });
+
+  it('sem mais mensagens, não oferece "Carregar mais"', async () => {
+    mockListar.mockResolvedValue({ contatos: [contatoDeTeste()], haMais: false });
+    render(<ContatosDoSite />);
+    await screen.findByText('Ana Souza');
+    expect(screen.queryByRole('button', { name: 'Carregar mais' })).not.toBeInTheDocument();
+  });
+
+  it('se "Carregar mais" falha, mantém a lista e deixa tentar de novo', async () => {
+    mockListar.mockResolvedValueOnce({ contatos: [contatoDeTeste({ id: 9 })], haMais: true });
+    mockListar.mockRejectedValueOnce(new ContatosDoSiteError('falha'));
+    mockListar.mockResolvedValueOnce({ contatos: [contatoDeTeste({ id: 3, nome: 'Três' })], haMais: false });
+    render(<ContatosDoSite />);
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Carregar mais' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Não foi possível carregar mais contatos.');
+    expect(screen.getByText('Ana Souza')).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Carregar mais' }));
+    expect(await screen.findByText('Três Souza')).toBeInTheDocument();
   });
 
   it('se a lista não carrega, mostra o erro e tenta de novo', async () => {

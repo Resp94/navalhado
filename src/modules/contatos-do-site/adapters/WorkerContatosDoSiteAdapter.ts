@@ -37,8 +37,12 @@ export class WorkerContatosDoSiteAdapter implements IContatosDoSiteAdapter {
     this.fetchFn = fetchFn;
   }
 
-  async listar(): Promise<PaginaDeContatos> {
-    const corpo = (await this.pedir(ROTA)) as { contatos: ContatoDoWorker[]; haMais: boolean };
+  async listar(filtro: StatusDoContato | null, antesDe: number | null): Promise<PaginaDeContatos> {
+    const params = new URLSearchParams();
+    if (filtro) params.set('status', filtro);
+    if (antesDe !== null) params.set('antesDe', String(antesDe));
+    const query = params.toString();
+    const corpo = (await this.pedir(query ? `${ROTA}?${query}` : ROTA)) as { contatos: ContatoDoWorker[]; haMais: boolean };
     return { contatos: corpo.contatos.map(paraContato), haMais: corpo.haMais };
   }
 

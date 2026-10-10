@@ -140,6 +140,45 @@ describe('GET /api/admin/contatos', () => {
     expect(corpo.haMais).toBe(false);
   });
 
+  it('filtra pelo status', async () => {
+    const { env, banco } = montar();
+    banco.inserir({ nome: 'Nova' });
+    banco.inserir({ nome: 'Lida', status: 'lido' });
+    banco.inserir({ nome: 'Respondida', status: 'respondido' });
+    banco.inserir({ nome: 'Outra nova' });
+
+    const corpo = await (await pedir(env, '/api/admin/contatos?status=novo', comToken())).json();
+
+    expect(corpo.contatos.map((c: { nome: string }) => c.nome)).toEqual(['Outra nova', 'Nova']);
+  });
+
+  it('pagina pelo id com antesDe, mantendo o filtro', async () => {
+    const { env, banco } = montar();
+    for (let i = 1; i <= 120; i++) banco.inserir({ nome: `Contato ${i}`, status: i % 2 === 0 ? 'novo' : 'lido' });
+
+    const primeira = await (await pedir(env, '/api/admin/contatos?status=novo', comToken())).json();
+    expect(primeira.contatos).toHaveLength(50);
+    expect(primeira.haMais).toBe(true);
+    const ultimoId = primeira.contatos[49].id;
+
+    const segunda = await (await pedir(env, `/api/admin/contatos?status=novo&antesDe=${ultimoId}`, comToken())).json();
+    expect(segunda.contatos).toHaveLength(10);
+    expect(segunda.haMais).toBe(false);
+    expect(segunda.contatos.every((c: { id: number; status: string }) => c.id < ultimoId && c.status === 'novo')).toBe(true);
+  });
+
+  it.each(['arquivado', 'NOVO', ''])('status inválido (%s) responde 422', async (status) => {
+    const { env } = montar();
+    const res = await pedir(env, `/api/admin/contatos?status=${status}`, comToken());
+    expect(res.status).toBe(422);
+  });
+
+  it.each(['abc', '0', '-3', '1.5'])('antesDe inválido (%s) responde 422', async (antesDe) => {
+    const { env } = montar();
+    const res = await pedir(env, `/api/admin/contatos?antesDe=${antesDe}`, comToken());
+    expect(res.status).toBe(422);
+  });
+
   it('erro do D1 responde 500 com mensagem genérica e o detalhe só no log', async () => {
     const { env } = montar();
     env.CONTATOS = {

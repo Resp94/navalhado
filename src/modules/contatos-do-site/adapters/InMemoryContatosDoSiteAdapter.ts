@@ -1,4 +1,4 @@
-import type { ContatoDoSite, IContatosDoSiteAdapter, PaginaDeContatos } from '../types';
+import type { ContatoDoSite, IContatosDoSiteAdapter, PaginaDeContatos, StatusDoContato } from '../types';
 
 const TAMANHO_DA_PAGINA = 50;
 
@@ -24,8 +24,10 @@ export class InMemoryContatosDoSiteAdapter implements IContatosDoSiteAdapter {
     this.contatos = contatos.map((c) => ({ ...c }));
   }
 
-  async listar(): Promise<PaginaDeContatos> {
-    const ordenados = [...this.contatos].sort((a, b) => b.id - a.id);
+  async listar(filtro: StatusDoContato | null, antesDe: number | null): Promise<PaginaDeContatos> {
+    const ordenados = this.contatos
+      .filter((c) => (filtro === null || c.status === filtro) && (antesDe === null || c.id < antesDe))
+      .sort((a, b) => b.id - a.id);
     return {
       contatos: ordenados.slice(0, TAMANHO_DA_PAGINA).map((c) => ({ ...c })),
       haMais: ordenados.length > TAMANHO_DA_PAGINA,
